@@ -1,0 +1,15 @@
+Tommy Trojan
+📍 Los Angeles, CA | ✉️ tommyt@usc.edu | 📞 (123) 456-7890 | 🌐 linkedin.com/in/tommyt | github.com/tommyt
+
+🎓 Education
+University of Southern California (USC)
+Master of Science in Analytics
+Aug 2023 – May 2025
+
+GPA: 3.86/4.00
+
+Relevant Coursework: Machine Learning, Data Mining, Statistical Inference, Database Systems, Big Data Analytics
+
+💻 Technical Skills
+Languages: Python, R, SQL, JavaScript
+Tools/Frameworks: Pandas, Scikit-learn, TensorFlow, Spark, Tableau, Docker, Git
