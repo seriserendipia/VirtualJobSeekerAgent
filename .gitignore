@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env
+*.sqlite3
+
+# VSCode
+.vscode/
+
+# Chrome Extension build artifacts
+extension/*.zip
+extension/dist/
+extension/node_modules/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Others
+*.bak
+*.swp
+
+# Ignore virtual environments
+venv/
+ENV/
+.env/

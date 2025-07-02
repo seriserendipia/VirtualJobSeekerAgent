@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Virtual job seeker agent",
+  "version": "1.0",
+  "description": "virtual job seeker agent.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [],
+  "host_permissions": ["http://localhost:5000/"]
+}
