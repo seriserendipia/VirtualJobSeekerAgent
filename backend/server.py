@@ -13,8 +13,18 @@ from email_handling import send_email_via_mcp
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
+# TODO: 修改 cors 只允许 Chrome 扩展和特定域名访问
+# CORS(app, resources={r"/*": {
+#     "origins": [
+#         "http://localhost:3000", 
+#         "https://your-frontend-domain.com",
+#         "chrome-extension://*",
+##         "chrome-extension://<your-extension-id>"  # 这里记得要配置扩展 id
+#     ]
+# }})
 
 SMITHERY_API_KEY = "334a9cb0-9b76-4fe0-89e3-e206bb32fa93"
+# TODO: 这个密钥暴露了，要删掉
 
 # Gmail AutoAuth MCP Server 
 MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/server-gmail-autoauth-mcp"]
