@@ -1,0 +1,86 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 14px;
+  margin: 0;
+  padding: 15px;
+  width: 300px;
+  background-color: #f9f9f9;
+  color: #333;
+  box-sizing: border-box;
+}
+
+h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+input[type="file"],
+textarea,
+button {
+  width: 100%;
+  font-size: 14px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+input[type="file"] {
+  border: none;
+  background-color: transparent;
+  color: #0073b1;
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+
+textarea {
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  min-height: 60px;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+button {
+  background-color: #0073b1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: #005582;
+}
+
+#response-box {
+  background-color: #fff;
+  padding: 10px;
+  min-height: 100px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+#resume-status {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.preview-box {
+  background-color: #fff;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #444;
+}
