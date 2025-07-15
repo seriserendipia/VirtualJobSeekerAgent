@@ -109,23 +109,37 @@ async def handle_send_email():
         
 
 # send email from a JSON file for now, future will be from frontend? 
-@app.route('/send-email-from-file', methods=['GET']) 
+@app.route('/send-email-from-file', methods=['POST']) 
 async def send_email_from_file():
     logging.info(f'Received request to send email from file from {request.remote_addr}')
     
-    email_file_name = 'email_content.json'
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, email_file_name)
-
-    if not os.path.exists(file_path):
-        logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
-        return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return "Forbidden", 403
 
     try:
+        email_content_data = request.get_json(force=True)
+        if not email_content_data:
+            logging.error("Request body is empty or not valid JSON.")
+            return "Invalid JSON in request body.", 400
+
+        logging.info(f'Parsed email data: {email_content_data}')
+
+        email_file_name = 'email_content.json'
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, email_file_name)
+
+        if not os.path.exists(file_path):
+            logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
+            return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
+
         with open(file_path, 'r', encoding='utf-8') as f:
             email_data_from_file = json.load(f)
+
+        logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data}")
         
-        logging.info(f"Loaded email data from file: {email_data_from_file}")
+        if isinstance(email_data_from_file, dict):
+            email_data_from_file.update({"body": email_content_data["emailContent"]})  # Merge with any additional data from the request
 
         # Call the imported function, passing necessary parameters
         success, mcp_response = await send_email_via_mcp(

@@ -18,7 +18,8 @@
 
 
 ## 目录结构
-- extension/  Chrome扩展前端
+- frontend/   Chrome扩展前端
+- (已废除)extension/  Chrome扩展前端
 - backend/    Python后端
 - samples/    示例数据和对话样例（如：chatbot_dialog_sample.txt）
 

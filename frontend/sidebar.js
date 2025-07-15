@@ -71,7 +71,7 @@ window.addEventListener("message", (event) => {
 document.getElementById("generate-btn").addEventListener("click", async () => {
   const userInput = document.getElementById("user-input").value;
   const responseBox = document.querySelector(".placeholder");
-  const sendEmailBtn = document.getElementById("send-email-btn");
+  const sendEmailBtn = document.getElementById("send-email-from-file-btn");
 
 
   responseBox.innerText = "⏳ Generating email... Please wait.";
@@ -110,14 +110,17 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
 });
 
 // 发送邮件按钮点击事件
-document.getElementById("send-email-btn").addEventListener("click", async () => {
+// 现在暂时假装，我们直接从本地的email content文件发邮件,因为我们直接生成的邮件格式还不是JSON的，而且没有收件人
+document.getElementById("send-email-from-file-btn").addEventListener("click", async () => {
   alert('Attempting to send email using data from email_content.json...');
+  const responseBox = document.querySelector(".placeholder");
   const emailContent = responseBox.innerText;
+
   if (!emailContent || emailContent.includes("Generating email")) {
     responseBox.innerText = "❌ Please generate an email first.";
     return;
   }
-  const res = await fetch("http://localhost:5000/send-email", {
+  const res = await fetch("http://localhost:5000/send-email-from-file", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -125,17 +128,17 @@ document.getElementById("send-email-btn").addEventListener("click", async () => 
     },
     body: JSON.stringify({ emailContent }),
   });
-  if (!res.ok) {
-    responseBox.innerText = "❌ Failed to send email. Please try again.";
-    console.error("[ERROR] Failed to send email:", res.statusText);
-    return;
-  }
+  // if (!res.ok) {
+  //   responseBox.innerText = "❌ Failed to send email. Please try again.";
+  //   console.error("[ERROR] Failed to send email:", res.statusText);
+  //   return;
+  // }
   const result = await res.json();
   if (result.success) {
-    responseBox.innerText = "✅ Email sent successfully!";
+    // responseBox.innerText = "✅ Email sent successfully!";
   }
   else {
-    responseBox.innerText = "❌ Failed to send email. Please try again.";
+    // responseBox.innerText = "❌ Failed to send email. Please try again.";
     console.error("[ERROR] Email sending failed:", result.error);
   }
 });
