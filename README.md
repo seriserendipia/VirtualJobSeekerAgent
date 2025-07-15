@@ -3,11 +3,12 @@
 ## 启动方式
 1. 命令行启动后端  
     进入 `backend/` 目录，运行 `python server.py` 文件，启动后端服务
-2. 进入Chrome扩展（也叫‘插件’）：在浏览器右上角，点击 'Extensions图标 ——— Manage Extensions'，进入'Extensions'，打开页面右上角开发者模式'Developer mode'，点击'Load unpacked'，加载 extension/ 目录，可看到我们的'Virtual job seeker agent 1.0'扩展成功导入
-3. 点击我们的'Virtual job seeker agent 1.0'扩展弹窗按钮，会弹出'Hello, Chrome Extension!'黑体字样
+2. 进入Chrome扩展（也叫‘插件’）：在浏览器右上角，点击 'Extensions图标 ——— Manage Extensions'，进入'Extensions'，打开页面右上角开发者模式'Developer mode'，点击'Load unpacked'，加载 frontend/ 目录，可看到我们的'Job seeker agent 1.0'扩展成功导入
+3. 打开Linkedin Job，应该会自动加载侧边栏
 ![扩展加载演示](Tutorial/1.png)
-4. 继续点击'Send to backend'，有弹窗显示'Backend says: Hello from Python backend.'表明全部跑通成功！
+4. 上传简历，点击生成邮件，然后再点击发送（注意真的会发到email_content.json中指定的邮箱！）                                                              
 ![前后端交互演示](Tutorial/2.png)
+![前后端交互演示](Tutorial/3.png)
 
 （原理大致解释：前端会通过 `fetch` 请求访问本地 5000 端口，后端监听5000端口，并从5000端口发送信息给前端）
 
