@@ -8,7 +8,7 @@ import logging
 from mcp.types import CallToolResult, TextContent 
 
 
-
+from generate_followup_email import generate_followup_email
 from email_handling import send_email_via_mcp 
 
 app = Flask(__name__)
@@ -22,6 +22,45 @@ MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/serv
 # Configure logging for Flask
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
 
+
+@app.route('/generate_email', methods=['POST'])
+def handle_generate_email():
+    """
+    处理生成邮件的 POST 请求
+    """
+    logging.info(f'Received generate_email request from {request.remote_addr}')
+
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            logging.error("Request body is empty or not valid JSON.")
+            return jsonify({"error": "Invalid JSON in request body."}), 400
+
+        job_description = payload.get('job_description')
+        resume = payload.get('resume')
+        user_prompt = payload.get('user_prompt')
+
+        print(f"Received payload: {payload}")
+
+        # TODO:用户自定义的邮件 prompt 
+        # if not all([job_description, resume, user_prompt]):
+        #     logging.error("Missing required fields in request payload.")
+        #     return jsonify({"error": "Missing required fields in request payload."}), 400
+
+        # 调用生成邮件的方法
+        generated_email = generate_followup_email(resume, job_description)
+
+        return jsonify({
+            "generated_email": generated_email
+        }), 200
+
+    except Exception as e:
+        logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 

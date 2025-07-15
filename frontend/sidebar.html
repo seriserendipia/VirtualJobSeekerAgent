@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="sidebar.css" />
+  <style>
+    /* 默认隐藏发送按钮 */
+    #send-email-btn {
+      display: none;
+    }
+  </style>
 </head>
 <body>
   <div id="container">
@@ -27,6 +33,8 @@
     <!-- ✅ 聊天气泡区域 -->
     <div id="chat-box" class="chat-box"></div>
     <p class="placeholder">Generated email will appear here.</p>
+    <!-- ✅ 发送邮件按钮 -->
+    <button id="send-email-btn">📧 Send Email</button>
   </div>
 
   <script src="sidebar.js"></script>
