@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="sidebar.css" />
+  <style>
+    /* 默认隐藏发送按钮 */
+    #send-email-btn {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h2>🎯 Job AI Assistant</h2>
+
+    <!-- ✅ 新增：JD 预览区 -->
+    <h3>📄 Job Description Preview</h3>
+    <div id="jd-preview" class="preview-box">No JD loaded</div>
+
+    <!-- ✅ 用户输入 -->
+    <textarea id="user-input" placeholder="Ask something about this job..."></textarea>
+
+    <!-- ✅ 简历上传 + 生成按钮 -->
+    <div class="action-row">
+      <label for="resume-upload" class="custom-file-upload">📄 Upload Resume</label>
+      <input type="file" id="resume-upload" accept=".txt,.pdf,.doc,.docx" />
+      <p id="resume-status" class="small-text">📎 No resume uploaded</p>
+
+      <button id="generate-btn">🚀 Generate Email</button>
+    </div>
+
+    <!-- ✅ 聊天气泡区域 -->
+    <div id="chat-box" class="chat-box"></div>
+    <p class="placeholder">Generated email will appear here.</p>
+    <!-- ✅ 发送邮件按钮 -->
+    <button id="send-email-from-file-btn">📧 Send Email from File</button>
+  </div>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

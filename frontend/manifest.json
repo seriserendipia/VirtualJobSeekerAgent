@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Job Seeking Assistant",
+  "version": "1.0",
+  "description": "AI assistant to help generate follow-up emails for jobs on LinkedIn.",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.linkedin.com/jobs/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "web_accessible_resources": [{
+    "resources": ["sidebar.html"],
+    "matches": ["<all_urls>"]
+  }]
+}
