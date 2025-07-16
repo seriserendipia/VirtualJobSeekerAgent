@@ -9,7 +9,7 @@ from mcp.types import CallToolResult, TextContent
 
 
 from generate_followup_email import generate_followup_email
-from email_handling import send_email_via_mcp 
+from email_handling import send_email_via_aurite
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
@@ -91,10 +91,8 @@ async def handle_send_email():
         logging.info(f'Parsed email data: {email_data}')
 
         # Call the imported function, passing necessary parameters
-        success, mcp_response = await send_email_via_mcp(
-            email_data, 
-            SMITHERY_API_KEY, 
-            MCP_SERVER_COMMAND_LIST
+        success, mcp_response = await send_email_via_aurite(
+            email_data
         )
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
@@ -152,10 +150,8 @@ async def send_email_from_file():
             email_data_from_file.update({"body": email_content_data["emailContent"]})  # Merge with any additional data from the request
 
         # Call the imported function, passing necessary parameters
-        success, mcp_response = await send_email_via_mcp(
-            email_data_from_file, 
-            SMITHERY_API_KEY, 
-            MCP_SERVER_COMMAND_LIST
+        success, mcp_response = await send_email_via_aurite(
+            email_data_from_file
         )
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
