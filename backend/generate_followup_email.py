@@ -1,32 +1,29 @@
 import os
+import re
+import json
 from openai import OpenAI
 from dotenv import load_dotenv
 
-
 def load_files(resume_path: str, jd_path: str) -> tuple:
-    """
-    读取简历和 JD 文件内容，返回内容元组 (resume_content, jd_content)
-    """
     with open(resume_path, "r", encoding="utf-8") as f:
         resume_content = f.read()
-
     with open(jd_path, "r", encoding="utf-8") as f:
         jd_content = f.read()
-
     return resume_content, jd_content
 
+def parse_email_to_json(raw_content: str) -> dict:
+    subject_match = re.search(r"Subject:\s*(.*)", raw_content)
+    body_match = re.search(r"Body:\s*([\s\S]*)", raw_content)
 
-def generate_followup_email(resume_content: str, jd_content: str) -> str:
-    """
-    调用 GPT-4o 根据简历内容和 JD 内容生成跟进邮件
-    """
-    # 加载 .env
+    subject = subject_match.group(1).strip() if subject_match else ""
+    body = body_match.group(1).strip() if body_match else ""
+
+    return {"subject": subject, "body": body}
+
+def generate_followup_email(resume_content: str, jd_content: str) -> dict:
     load_dotenv()
-
-    # 初始化 OpenAI 客户端
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    # 拼接 prompt
     prompt = f"""
 You are an experienced job application assistant.
 Below is my resume:
@@ -41,9 +38,17 @@ Please write a professional follow-up email to the recruiter,
 expressing strong interest in this position,
 highlighting why I am a good fit,
 and politely asking for any updates about the application process.
+
+Output the email with exactly two parts labeled as below:
+
+Subject: <the email subject line>
+
+Body:
+<the full email body text>
+
+Do not add any explanations or extra notes.
 """
 
-    # 调用 GPT-4o
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -52,19 +57,18 @@ and politely asking for any updates about the application process.
         ]
     )
 
-    return response.choices[0].message.content
+    raw_content = response.choices[0].message.content
+    email_json = parse_email_to_json(raw_content)
+    return email_json
 
 
 if __name__ == "__main__":
-    # 传入你的文件路径
     resume_path = r"F:\USC\AI Agent\resume.txt"
     jd_path = r"F:\USC\AI Agent\job_description.txt"
 
-    # 调用封装好的文件读取函数
     resume_content, jd_content = load_files(resume_path, jd_path)
 
-    # 调用封装好的 GPT 生成函数
-    result = generate_followup_email(resume_content, jd_content)
+    email_dict = generate_followup_email(resume_content, jd_content)
 
-    print("\n Follow-up Email Draft:\n")
-    print(result)
+    # 输出漂亮的 JSON 字符串
+    print(json.dumps(email_dict, indent=4, ensure_ascii=False))
