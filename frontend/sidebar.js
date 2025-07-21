@@ -97,8 +97,14 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
     }
 
     const result = await res.json();
-
-    responseBox.innerText = `📧 Generated Email:\n\n${result.generated_email || "(No content returned)"}`;
+    // 判断 generated_email 是否为对象，优先显示 subject 和 body
+    if (result.generated_email && typeof result.generated_email === 'object') {
+      const subject = result.generated_email.subject || '';
+      const body = result.generated_email.body || '';
+      responseBox.innerText = `📧 Generated Email\n\nSubject: ${subject}\n\n${body}`;
+    } else {
+      responseBox.innerText = `📧 Generated Email:\n\n${result.generated_email || "(No content returned)"}`;
+    }
     
     // 显示发送按钮
     sendEmailBtn.style.display = 'inline-block';

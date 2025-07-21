@@ -63,8 +63,8 @@ Do not add any explanations or extra notes.
 
 
 if __name__ == "__main__":
-    resume_path = r"F:\USC\AI Agent\resume.txt"
-    jd_path = r"F:\USC\AI Agent\job_description.txt"
+    resume_path = os.path.join(os.path.dirname(__file__), "..", "samples", "user_resume_sample.txt")
+    jd_path = os.path.join(os.path.dirname(__file__), "..", "samples", "jobdescription_sample.txt")
 
     resume_content, jd_content = load_files(resume_path, jd_path)
 
