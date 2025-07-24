@@ -7,6 +7,16 @@ __pycache__/
 .env
 *.sqlite3
 
+# Conda
+conda/
+*.conda
+*.ipynb_checkpoints
+*.egg-info/
+*.eggs/
+*.condarc
+*.conda_env
+env/
+
 # VSCode
 .vscode/
 
@@ -14,6 +24,9 @@ __pycache__/
 extension/*.zip
 extension/dist/
 extension/node_modules/
+
+# Frontend generated files
+frontend/manifest.json
 
 # System
 .DS_Store

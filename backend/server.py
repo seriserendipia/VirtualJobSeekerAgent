@@ -1,12 +1,12 @@
 import os
-import datetime
 import json
-import asyncio
-from flask import Flask, request, jsonify, send_from_directory, abort, make_response
-from flask_cors import CORS 
 import logging
-from mcp.types import CallToolResult, TextContent 
+import traceback
 
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+from mcp.types import TextContent
 
 from generate_followup_email import generate_followup_email
 from email_handling import send_email_via_aurite
@@ -23,11 +23,6 @@ CORS(app) # Enable CORS for all routes
 #     ]
 # }})
 
-SMITHERY_API_KEY = "334a9cb0-9b76-4fe0-89e3-e206bb32fa93"
-# TODO: 这个密钥暴露了，要删掉
-
-# Gmail AutoAuth MCP Server 
-MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/server-gmail-autoauth-mcp"]
 
 # Configure logging for Flask
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
@@ -73,27 +68,63 @@ def handle_generate_email():
         return jsonify({"error": str(e)}), 500
 
 
+def validate_request():
+    """
+    验证发邮件请求的基本格式和权限，并整合access_token到邮件数据中
+    Returns: (is_valid, error_response, email_data_with_token)
+    """
+    # 验证扩展头
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return False, (jsonify({'error': 'Forbidden'}), 403), None
+    
+    # 验证邮件格式是否是JSON数据
+    try:
+        data = request.get_json(force=True)
+        if not data:
+            logging.error("Request body is empty or not valid JSON.")
+            return False, (jsonify({'error': 'Invalid JSON in request body.'}), 400), None
+    except Exception as e:
+        logging.error(f"JSON parsing error: {e}")
+        return False, (jsonify({'error': 'Invalid JSON in request body.'}), 400), None
+    
+    # 验证是否有用户邮箱的access_token
+    access_token = data.get('access_token')
+    if not access_token:
+        logging.error("Missing required access_token in request.")
+        return False, (jsonify({'error': 'Missing required access_token'}), 400), None
+    
+    # 验证邮件内容
+    email_data = data.get('emailData', {})
+    if not email_data or not email_data.get('subject') or not email_data.get('body'):
+        logging.error(f"Invalid email data structure: {email_data}")
+        return False, (jsonify({'error': 'Invalid email data. Please generate a proper email first.'}), 400), None
+    
+    # 创建包含access_token的完整邮件数据字典
+    email_data_with_token = data.copy()
+    # 确保access_token在邮件数据中（如果原来就有则保持，如果没有则添加）
+    email_data_with_token['access_token'] = access_token
+    
+    return True, None, email_data_with_token
 
 @app.route('/send-email', methods=['POST'])
 async def handle_send_email():
     logging.info(f'Received send-email request from {request.remote_addr}')
 
-    if request.headers.get('X-From-Extension') != 'true':
-        logging.warning("Request missing 'X-From-Extension: true' header.")
-        return "Forbidden", 403
+    # 使用统一的验证函数，现在返回整合了access_token的邮件数据
+    is_valid, error_response, email_data_with_token = validate_request()
+    if not is_valid:
+        return error_response
+    
+    logging.info(f'Parsed email data with token: {email_data_with_token}')
+    # 安全地显示access_token前缀用于调试
+    if 'access_token' in email_data_with_token:
+        logging.info(f'Processing email with access_token: {email_data_with_token["access_token"][:20]}...')
 
     try:
-        email_data = request.get_json(force=True)
-        if not email_data:
-            logging.error("Request body is empty or not valid JSON.")
-            return "Invalid JSON in request body.", 400
-        
-        logging.info(f'Parsed email data: {email_data}')
-
-        # Call the imported function, passing necessary parameters
-        success, mcp_response = await send_email_via_aurite(
-            email_data
-        )
+        logging.info("Calling send_email_via_aurite...")
+        success, mcp_response = await send_email_via_aurite(email_data_with_token)
+        logging.info(f"Email sending result - Success: {success}, Response: {type(mcp_response)}")
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
         json_serializable_mcp_response = None
@@ -105,33 +136,30 @@ async def handle_send_email():
         else: # Fallback if it's not a CallToolResult or has unexpected content, or is already a string
             json_serializable_mcp_response = str(mcp_response)
 
+        logging.info(f"Serialized response: {json_serializable_mcp_response}")
 
         if success:
-            return jsonify({"message": "Email sent successfully", "mcp_response": json_serializable_mcp_response}), 200
+            return jsonify({"success": True, "message": "Email sent successfully with OAuth", "mcp_response": json_serializable_mcp_response}), 200
         else:
-            return jsonify({"message": "Failed to send email via MCP", "error": json_serializable_mcp_response}), 500
+            return jsonify({"success": False, "message": "Failed to send email via OAuth", "error": json_serializable_mcp_response}), 500
 
     except Exception as e:
-        logging.error(f'Failed to process send-email request: {e}', exc_info=True)
-        return jsonify({"message": "Internal Server Error", "error": str(e)}), 500
-        
+        logging.error(f'Failed to process send-email request: {e}')
+        logging.error(f'Exception traceback: {traceback.format_exc()}')
+        return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
 
-# send email from a JSON file for now, future will be from frontend? 
+# send email from a JSON file for now, because we don't have the receiver's email, future will get it from frontend
 @app.route('/send-email-from-file', methods=['POST']) 
 async def send_email_from_file():
     logging.info(f'Received request to send email from file from {request.remote_addr}')
     
-    if request.headers.get('X-From-Extension') != 'true':
-        logging.warning("Request missing 'X-From-Extension: true' header.")
-        return "Forbidden", 403
+    # 使用统一的验证函数，现在返回整合了access_token的邮件数据
+    is_valid, error_response, email_content_data_with_token = validate_request()
+    if not is_valid:
+        return error_response
 
     try:
-        email_content_data = request.get_json(force=True)
-        if not email_content_data:
-            logging.error("Request body is empty or not valid JSON.")
-            return "Invalid JSON in request body.", 400
-
-        logging.info(f'Parsed email data: {email_content_data}')
+        logging.info(f'Parsed email data with token: {email_content_data_with_token}')
 
         email_file_name = 'email_content.json'
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -144,15 +172,26 @@ async def send_email_from_file():
         with open(file_path, 'r', encoding='utf-8') as f:
             email_data_from_file = json.load(f)
 
-        logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data}")
+        logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data_with_token}")
         
+        # 整合文件数据、前端数据和access_token
         if isinstance(email_data_from_file, dict):
-            email_data_from_file.update({"body": email_content_data["emailContent"]})  # Merge with any additional data from the request
+            # 从文件获取基础邮件结构
+            final_email_data = email_data_from_file.copy()
+            # 用前端传来的邮件数据更新主题和正文
+            if "emailData" in email_content_data_with_token:
+                email_data = email_content_data_with_token["emailData"]
+                final_email_data["subject"] = email_data.get("subject", "")
+                final_email_data["body"] = email_data.get("body", "")
+            # 确保包含access_token
+            final_email_data["access_token"] = email_content_data_with_token["access_token"]
+        else:
+            final_email_data = email_content_data_with_token
 
-        # Call the imported function, passing necessary parameters
-        success, mcp_response = await send_email_via_aurite(
-            email_data_from_file
-        )
+        # 使用OAuth方式发送邮件
+        if 'access_token' in final_email_data:
+            logging.info(f'Processing file email with access_token: {final_email_data["access_token"][:20]}...')
+        success, mcp_response = await send_email_via_aurite(final_email_data)
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
         json_serializable_mcp_response = None
@@ -164,16 +203,16 @@ async def send_email_from_file():
             json_serializable_mcp_response = str(mcp_response)
 
         if success:
-            return jsonify({"message": "Email sent successfully from file data", "mcp_response": json_serializable_mcp_response}), 200
+            return jsonify({"success": True, "message": "Email sent successfully from file data with OAuth", "mcp_response": json_serializable_mcp_response}), 200
         else:
-            return jsonify({"message": "Failed to send email from file data", "error": json_serializable_mcp_response}), 500
+            return jsonify({"success": False, "message": "Failed to send email from file data via OAuth", "error": json_serializable_mcp_response}), 500
 
     except json.JSONDecodeError as e:
         logging.error(f"Error decoding JSON from '{email_file_name}': {e}", exc_info=True)
-        return jsonify({"message": f"Error: Invalid JSON format in '{email_file_name}'."}), 400
+        return jsonify({"success": False, "message": f"Error: Invalid JSON format in '{email_file_name}'."}), 400
     except Exception as e:
         logging.error(f"Error processing request to send email from file: {e}", exc_info=True)
-        return jsonify({"message": "Internal Server Error", "error": str(e)}), 500
+        return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
 
 
 @app.route('/', methods=['GET'])
