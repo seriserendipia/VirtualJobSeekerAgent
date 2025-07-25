@@ -1,86 +1,37 @@
-# 项目说明
+# 📬 Virtual Job Seeker Agent (Powered by Aurite)
 
-本项目包含两个核心 Python 文件，配合使用 OpenAI API 来自动生成基于简历和职位描述的跟进邮件，并将邮件内容以结构化 JSON 格式输出。
+本项目是一个基于 **Aurite 框架** 构建的智能求职助手，能够根据用户的简历和职位描述自动生成一封专业的 **跟进邮件（follow-up email）**，并支持通过 MCP（如 Gmail 工具）自动发送。
 
 ---
 
-## 先决条件
+## 项目已迁移至 Aurite 架构
 
-1. 创建 `.env` 文件，添加你的 OpenAI API 密钥
+| 文件名 | 职责说明 | 类型 |
+|--------|-----------|------|
+| `main.py` | 项目主入口，注册 LLM 与 Agent，加载简历与 JD，生成邮件并通过 MCP 自动发送 | ✅ 命令行交互脚本 |
+| `followup_email_agent.py` | 定义结构化邮件生成 Agent，基于简历与 JD 输出 JSON 格式邮件内容 | ✅ Aurite Agent 配置 |
+| `server.py` | 启动 Flask 服务，提供 `/send-email` 和 `/test` 接口，通过 MCP 调用 Gmail 客户端发送邮件 | ✅ 后端接口模块 |
 
-   ![1](E:\Project\VirtualJobSeekerAgent\backend\1.png)
+## 环境配置
 
-1. 安装依赖库：
-
+1. 在根目录下创建 `.env` 文件并设置以下环境变量
+![env_screenshot](./env_screenshot.png)
+```env
+OPENAI_API_KEY=your_openai_key_here
+SMITHERY_API_KEY=your_smithery_key_here
+```
+2. 安装依赖
 ```bash
-pip install openai python-dotenv
+pip install aurite==0.3.18 openai python-dotenv flask flask-cors
 ```
-
-# 文件说明
-
-本项目需配合使用 OpenAI API 来自动生成基于简历和职位描述的跟进邮件，并将邮件内容以结构化 JSON 格式输出。
-
-## 1.  `llm_service.py`
-
-负责初始化 OpenAI 客户端，自动检测运行环境（Colab / 本地），并测试 API key 是否可用。
-
-### 主要功能
-
-- 自动从 本地 `.env` 文件加载 `OPENAI_API_KEY`
-- 连接并测试 OpenAI API
-- 返回已初始化的 OpenAI 客户端实例
-
-### 运行方式
-
-```
-
-python llm_service.py
-```
-
-执行后会测试 API key 是否有效，并打印响应。
-
-------
-
-## 2. `generate_followup_email.py`
-
-根据简历文件和职位描述文件内容，调用 OpenAI GPT-4o 生成专业的跟进邮件，并提取邮件主题和正文，最后以 JSON 格式打印输出。
-
-### 主要功能
-
-- 读取指定路径的简历和职位描述文本文件
-- 拼接提示词（prompt）并调用 GPT-4o 生成邮件内容
-- 用正则表达式从 GPT 返回文本中提取 `Subject` 和 `Body`
-- 返回邮件内容的 JSON 字典格式
-
-### 使用方法
-
-```
-
-python generate_followup_email.py
-```
-
-### 代码关键点
-
-- 修改 `resume_path` 和 `jd_path` 为你本地的文件路径
-- 邮件生成结果会以 JSON 格式打印，方便后续程序处理
-
-------
-
-## 示例输出
-
-```
-json{
-    "subject": "Follow-Up on Quality Data Analyst Position Application",
-    "body": "Dear [Recruiter's Name],\n\nI hope this message finds you well. I am writing to express my continued interest..."
-}
-```
-
-
-
-
-
+## 运行
 ```bash
-
-
-
+python backend/main.py
 ```
+流程说明：
+
+自动读取 samples/ 文件夹中的简历和 JD；
+
+调用 Aurite agent 生成结构化邮件内容（subject + body）；
+
+用户输入邮箱地址，自动调用 MCP 发送邮件。

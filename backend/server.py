@@ -6,9 +6,10 @@ from flask import Flask, request, jsonify, send_from_directory, abort, make_resp
 from flask_cors import CORS 
 import logging
 from mcp.types import CallToolResult, TextContent 
+from followup_workflow import register_and_run_workflow
+from llm_and_agent_config import email_edit_agent
+from followup_workflow import initialize_aurite  # 复用初始化逻辑
 
-
-from generate_followup_email import generate_followup_email
 from email_handling import send_email_via_aurite
 
 app = Flask(__name__)
@@ -33,49 +34,110 @@ MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/serv
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
 
 
+# @app.route('/generate_email', methods=['POST'])
+# def handle_generate_email():
+#     """
+#     处理生成邮件的 POST 请求
+#     """
+#     logging.info(f'Received generate_email request from {request.remote_addr}')
+
+#     if request.headers.get('X-From-Extension') != 'true':
+#         logging.warning("Request missing 'X-From-Extension: true' header.")
+#         return jsonify({"error": "Forbidden"}), 403
+
+#     try:
+#         payload = request.get_json(force=True)
+#         if not payload:
+#             logging.error("Request body is empty or not valid JSON.")
+#             return jsonify({"error": "Invalid JSON in request body."}), 400
+
+#         job_description = payload.get('job_description')
+#         resume = payload.get('resume')
+#         user_prompt = payload.get('user_prompt')
+
+#         print(f"Received payload: {payload}")
+
+#         # TODO:用户自定义的邮件 prompt 
+#         # if not all([job_description, resume, user_prompt]):
+#         #     logging.error("Missing required fields in request payload.")
+#         #     return jsonify({"error": "Missing required fields in request payload."}), 400
+
+#         # 调用生成邮件的方法
+#         generated_email = generate_followup_email(resume, job_description)
+
+#         return jsonify({
+#             "generated_email": generated_email
+#         }), 200
+
+#     except Exception as e:
+#         logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+#         return jsonify({"error": str(e)}), 500
+
 @app.route('/generate_email', methods=['POST'])
-def handle_generate_email():
-    """
-    处理生成邮件的 POST 请求
-    """
+async def handle_generate_email():
+    print("✅ Received /generate_email request", flush=True)
     logging.info(f'Received generate_email request from {request.remote_addr}')
 
     if request.headers.get('X-From-Extension') != 'true':
-        logging.warning("Request missing 'X-From-Extension: true' header.")
+        logging.warning("Missing 'X-From-Extension: true' header.")
         return jsonify({"error": "Forbidden"}), 403
 
     try:
         payload = request.get_json(force=True)
-        if not payload:
-            logging.error("Request body is empty or not valid JSON.")
-            return jsonify({"error": "Invalid JSON in request body."}), 400
+        resume = payload.get('resume', '')
+        job_description = payload.get('job_description', '')
 
-        job_description = payload.get('job_description')
-        resume = payload.get('resume')
-        user_prompt = payload.get('user_prompt')
+        if not resume or not job_description:
+            return jsonify({"error": "Missing resume or job_description"}), 400
 
-        print(f"Received payload: {payload}")
-
-        # TODO:用户自定义的邮件 prompt 
-        # if not all([job_description, resume, user_prompt]):
-        #     logging.error("Missing required fields in request payload.")
-        #     return jsonify({"error": "Missing required fields in request payload."}), 400
-
-        # 调用生成邮件的方法
-        generated_email = generate_followup_email(resume, job_description)
+        # 调用 workflow 执行“生成+发送”
+        result = await register_and_run_workflow(resume, job_description)
 
         return jsonify({
-            "generated_email": generated_email
+            "message": "Follow-up email workflow executed successfully.",
+            "final_output": result.final_message
         }), 200
 
     except Exception as e:
-        logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+        logging.error(f'Error in /generate_email: {e}', exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@app.route('/revise_email', methods=['POST'])
+async def handle_revise_email():
+    print("✅ Received /revise_email request", flush=True)
+    logging.info(f'Received revise_email request from {request.remote_addr}')
+
+    if request.headers.get('X-From-Extension') != 'true':
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        payload = request.get_json(force=True)
+        original_email = payload.get('original_email', '')
+        instruction = payload.get('instruction', '')
+
+        if not original_email or not instruction:
+            return jsonify({"error": "Missing original_email or instruction"}), 400
+
+        combined_input = f"""Email:\n{original_email}\n\nInstruction:\n{instruction}"""
+
+        aurite = await initialize_aurite()
+        await aurite.register_agent(email_edit_agent)
+
+        result = await aurite.run_agent(
+            agent_name=email_edit_agent.name,
+            user_message=combined_input
+        )
+
+        return jsonify({"revised_email": result.primary_text}), 200
+
+    except Exception as e:
+        logging.error(f'Failed to process revise_email: {e}', exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/send-email', methods=['POST'])
 async def handle_send_email():
+    print("✅ Received /send-email request", flush=True)
     logging.info(f'Received send-email request from {request.remote_addr}')
 
     if request.headers.get('X-From-Extension') != 'true':
@@ -119,6 +181,7 @@ async def handle_send_email():
 # send email from a JSON file for now, future will be from frontend? 
 @app.route('/send-email-from-file', methods=['POST']) 
 async def send_email_from_file():
+    print("✅ Received /send-email-from-file request", flush=True)
     logging.info(f'Received request to send email from file from {request.remote_addr}')
     
     if request.headers.get('X-From-Extension') != 'true':
@@ -178,6 +241,7 @@ async def send_email_from_file():
 
 @app.route('/', methods=['GET'])
 def handle_root():
+    print("✅ Received /handle_root request", flush=True)
     logging.info(f'Received GET request to root from {request.remote_addr}')
     if request.headers.get('X-From-Extension') == 'true':
         return "Aloha from Python backend!", 200
