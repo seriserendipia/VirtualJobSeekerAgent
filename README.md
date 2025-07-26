@@ -1,6 +1,52 @@
 # Chrome Extension + Python Backend 
 
-## 启动方式
+## 🚀 快速开始
+
+### 环境配置
+1. **复制环境变量文件**：
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **编辑 `.env` 文件**，填入您的实际配置：
+   ```bash
+   OPENAI_API_KEY=your_openai_api_key
+   # ... 其他配置
+   ```
+
+### Google OAuth 配置说明
+
+1. 前往 [Google Cloud Console](https://console.cloud.google.com/) 创建或选择一个项目。
+2. 导航到“API 和服务” > “凭据”，点击“创建凭据” > “OAuth 2.0 客户端 ID”。
+3. 选择“应用类型”为 **Chrome 应用扩展程序**。
+4. 在“名称”处填写扩展名称，在“已授权的 JavaScript 来源”中添加：
+    ```
+    chrome-extension://<your_extension_id>
+    ```
+    其中 `<your_extension_id>` 可在 Chrome 扩展开发者模式下加载后获得。
+5. 在“已授权的重定向 URI”中添加：
+    ```
+    chrome-extension://<your_extension_id>/oauth2callback.html
+    ```
+6. 创建后，复制生成的 **客户端 ID**，填写到 `.env` 文件的 `GOOGLE_CLIENT_ID` 字段：
+    ```env
+    GOOGLE_CLIENT_ID=your_actual_google_client_id
+    ```
+7. 保存 `.env` 文件，后续即可通过 Google OAuth 登录。
+
+> 详细步骤可参考 [Google 官方文档](https://developers.google.com/identity/protocols/oauth2)。
+
+
+3. **生成 manifest.json**：
+   ```bash
+   python build_manifest.py
+   ```
+   或者直接运行：
+   ```bash
+   start_dev.bat
+   ```
+
+### 启动方式
 1. 命令行启动后端  
     进入 `backend/` 目录，运行 `python server.py` 文件，启动后端服务
 2. 进入Chrome扩展（也叫‘插件’）：在浏览器右上角，点击 'Extensions图标 ——— Manage Extensions'，进入'Extensions'，打开页面右上角开发者模式'Developer mode'，点击'Load unpacked'，加载 frontend/ 目录，可看到我们的'Job seeker agent 1.0'扩展成功导入
@@ -15,7 +61,6 @@
 > **说明：**  
 > - 后端（`server.py`）会一直监听本地 5000 端口。  
 > - 只有当前端（Chrome 扩展）点击按钮时，前端的 JS 代码才会通过 HTTP 请求访问后端。  
-> - 此时后端才会响应，并返回 “Hello from Python backend！”
 
 
 ## 目录结构

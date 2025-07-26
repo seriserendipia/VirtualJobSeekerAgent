@@ -1,5 +1,43 @@
+// Google授权类，用于获取这个浏览器登录的Google邮箱的access_token
+class GoogleAuth {
+    // 获取访问令牌 - Chrome扩展专用方式
+    async getAccessToken() {
+        return new Promise((resolve, reject) => {
+            // 检查chrome.identity是否可用
+            if (!chrome || !chrome.identity) {
+                reject(new Error("Chrome identity API not available"));
+                return;
+            }
+
+            chrome.identity.getAuthToken({
+                interactive: true
+            }, (token) => {
+                if (chrome.runtime.lastError) {
+                    // 如果是context invalidated错误，提示用户重新加载扩展
+                    if (chrome.runtime.lastError.message.includes('context invalidated')) {
+                        reject(new Error("扩展上下文已失效，请重新加载扩展程序"));
+                    } else {
+                        reject(chrome.runtime.lastError);
+                    }
+                    return;
+                }
+                resolve(token);
+            });
+        });
+    }
+}
+
+// 全局实例
+window.googleAuth = new GoogleAuth();
+
 let currentJobDescription = "";
 let resumeContent = "";
+
+// 保存结构化的邮件数据到全局变量，初始化为示例邮件
+window.generatedEmailData = {
+  subject: "Sample Mail:Follow-up on Job Application",
+  body: "Dear Hiring Manager,\n\nI am excited to apply for the position and believe my skills are a great match.\n\nBest regards,\n[Your Name]"
+};
 
 
 
@@ -40,10 +78,12 @@ document.getElementById("resume-upload").addEventListener("change", function (ev
   }
 });
 
-// 恢复之前保存的简历内容
+// 恢复之前保存的简历内容和显示初始邮件
 window.addEventListener("DOMContentLoaded", () => {
   const savedResume = localStorage.getItem("resumeText");
   const statusEl = document.getElementById("resume-status");
+  const responseBox = document.querySelector(".placeholder");
+  const sendEmailBtn = document.getElementById("send-email-from-file-btn");
 
   if (savedResume) {
     resumeContent = savedResume;
@@ -51,6 +91,15 @@ window.addEventListener("DOMContentLoaded", () => {
       statusEl.innerText = "📄 Resume restored from last session.";
     }
     console.log("✅ Resume restored from localStorage");
+  }
+
+  // 显示初始的sample email
+  if (responseBox && window.generatedEmailData) {
+    responseBox.innerText = `📧 Generated Email\n\nSubject: ${window.generatedEmailData.subject}\n\n${window.generatedEmailData.body}`;
+    // 显示发送按钮，因为有有效的邮件数据
+    if (sendEmailBtn) {
+      sendEmailBtn.style.display = 'inline-block';
+    }
   }
 });
 
@@ -102,8 +151,15 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
       const subject = result.generated_email.subject || '';
       const body = result.generated_email.body || '';
       responseBox.innerText = `📧 Generated Email\n\nSubject: ${subject}\n\n${body}`;
+      
+      // 保存结构化的邮件数据到全局变量，供发送时使用
+      window.generatedEmailData = {
+        subject: subject,
+        body: body
+      };
     } else {
       responseBox.innerText = `📧 Generated Email:\n\n${result.generated_email || "(No content returned)"}`;
+      window.generatedEmailData = null;
     }
     
     // 显示发送按钮
@@ -115,37 +171,69 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
   }
 });
 
+// 现在使用Google OAuth认证
 // 发送邮件按钮点击事件
-// 现在暂时假装，我们直接从本地的email content文件发邮件,因为我们直接生成的邮件格式还不是JSON的，而且没有收件人
 document.getElementById("send-email-from-file-btn").addEventListener("click", async () => {
   alert('Attempting to send email using data from email_content.json...');
   const responseBox = document.querySelector(".placeholder");
-  const emailContent = responseBox.innerText;
 
-  if (!emailContent || emailContent.includes("Generating email")) {
+  // 检查是否有生成的邮件数据
+  if (!window.generatedEmailData || !window.generatedEmailData.subject || !window.generatedEmailData.body) {
     responseBox.innerText = "❌ Please generate an email first.";
     return;
   }
-  const res = await fetch("http://localhost:5000/send-email-from-file", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-From-Extension": "true",
-    },
-    body: JSON.stringify({ emailContent }),
-  });
-  // if (!res.ok) {
-  //   responseBox.innerText = "❌ Failed to send email. Please try again.";
-  //   console.error("[ERROR] Failed to send email:", res.statusText);
-  //   return;
-  // }
-  const result = await res.json();
-  if (result.success) {
-    // responseBox.innerText = "✅ Email sent successfully!";
-  }
-  else {
-    // responseBox.innerText = "❌ Failed to send email. Please try again.";
-    console.error("[ERROR] Email sending failed:", result.error);
+
+  try {
+    responseBox.innerText = "🔐 正在获取Google授权...";
+
+    // 检查扩展上下文是否有效
+    if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+      throw new Error("扩展上下文已失效，请重新加载扩展程序");
+    }
+
+    // 获取Google访问令牌
+    const accessToken = await window.googleAuth.getAccessToken();
+    
+    responseBox.innerText = "📧 正在发送邮件...";
+
+    // 调用后端API，传递token和结构化的邮件数据
+    const res = await fetch("http://localhost:5000/send-email-from-file", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-From-Extension": "true"
+      },
+      body: JSON.stringify({ 
+        emailData: {
+          subject: window.generatedEmailData.subject,
+          body: window.generatedEmailData.body
+        },
+        access_token: accessToken 
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
+
+    const result = await res.json();
+    
+    if (result.success) {
+      responseBox.innerText = "✅ Email sent successfully with Google OAuth!";
+    } else {
+      responseBox.innerText = `❌ Failed to send email: ${result.error || 'Unknown error'}`;
+      console.error("[ERROR] Email sending failed:", result.error);
+    }
+
+  } catch (error) {
+    console.error("[ERROR] Email sending failed:", error);
+    
+    // 特殊处理扩展上下文失效的错误
+    if (error.message.includes('context invalidated') || error.message.includes('扩展上下文已失效')) {
+      responseBox.innerText = "❌ 扩展上下文已失效，请在Chrome扩展管理页面重新加载此扩展程序";
+    } else {
+      responseBox.innerText = `❌ Failed to send email: ${error.message}`;
+    }
   }
 });
 

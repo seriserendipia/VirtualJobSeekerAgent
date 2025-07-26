@@ -5,10 +5,9 @@ import asyncio
 from flask import Flask, request, jsonify, send_from_directory, abort, make_response
 from flask_cors import CORS 
 import logging
-from mcp.types import CallToolResult, TextContent 
+from mcp.types import CallToolResult, TextContent
+from followup_workflow import register_and_run_workflow 
 
-
-from generate_followup_email import generate_followup_email
 from email_handling import send_email_via_aurite
 
 app = Flask(__name__)
@@ -31,45 +30,59 @@ MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/serv
 
 # Configure logging for Flask
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
+# 在 server.py 文件顶部加入：
 
-
-@app.route('/generate_email', methods=['POST'])
-def handle_generate_email():
-    """
-    处理生成邮件的 POST 请求
-    """
-    logging.info(f'Received generate_email request from {request.remote_addr}')
+@app.route('/run-workflow', methods=['POST'])
+async def handle_run_workflow():
+    logging.info(f'Received /run-workflow request from {request.remote_addr}')
 
     if request.headers.get('X-From-Extension') != 'true':
-        logging.warning("Request missing 'X-From-Extension: true' header.")
+        logging.warning("Missing header.")
         return jsonify({"error": "Forbidden"}), 403
 
     try:
         payload = request.get_json(force=True)
-        if not payload:
-            logging.error("Request body is empty or not valid JSON.")
-            return jsonify({"error": "Invalid JSON in request body."}), 400
+        resume = payload.get('resume', '')
+        job_description = payload.get('job_description', '')
 
-        job_description = payload.get('job_description')
-        resume = payload.get('resume')
-        user_prompt = payload.get('user_prompt')
-
-        print(f"Received payload: {payload}")
-
-        # TODO:用户自定义的邮件 prompt 
-        # if not all([job_description, resume, user_prompt]):
-        #     logging.error("Missing required fields in request payload.")
-        #     return jsonify({"error": "Missing required fields in request payload."}), 400
-
-        # 调用生成邮件的方法
-        generated_email = generate_followup_email(resume, job_description)
+        result = await register_and_run_workflow(resume, job_description)
 
         return jsonify({
-            "generated_email": generated_email
+            "message": "Workflow completed",
+            "final_output": result.final_message
         }), 200
 
     except Exception as e:
-        logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+        logging.error(f"Workflow failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/generate_email', methods=['POST'])
+async def handle_generate_email():
+    logging.info(f'Received generate_email request from {request.remote_addr}')
+
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Missing 'X-From-Extension: true' header.")
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        payload = request.get_json(force=True)
+        resume = payload.get('resume', '')
+        job_description = payload.get('job_description', '')
+
+        if not resume or not job_description:
+            return jsonify({"error": "Missing resume or job_description"}), 400
+
+        # 调用 workflow 执行“生成+发送”
+        result = await register_and_run_workflow(resume, job_description)
+
+        return jsonify({
+            "message": "Follow-up email workflow executed successfully.",
+            "final_output": result.final_message
+        }), 200
+
+    except Exception as e:
+        logging.error(f'Error in /generate_email: {e}', exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
