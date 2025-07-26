@@ -20,6 +20,9 @@ env/
 # VSCode
 .vscode/
 
+# backend
+backend/secrets.py
+
 # Chrome Extension build artifacts
 extension/*.zip
 extension/dist/
