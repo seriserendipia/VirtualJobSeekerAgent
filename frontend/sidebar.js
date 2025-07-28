@@ -24,16 +24,40 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// 接收来自 content.js 的消息
+// ✅ 修改这里：接收来自 content.js 的消息
 window.addEventListener("message", (event) => {
+  // 1️⃣ 处理 JD 信息
   if (event.data.type === "JOB_DESCRIPTION") {
     currentJobDescription = event.data.data;
 
-    // 可选：在页面显示前 300 字预览
     const jdBox = document.getElementById("jd-preview");
     if (jdBox) {
-      jdBox.innerText = currentJobDescription.slice(0, 1000) + '...';  // 可自行调整显示长度
+      jdBox.innerText = currentJobDescription.slice(0, 1000) + '...'; 
     }
+  }
+
+  // 2️⃣ ✅ 处理 收件人信息
+  if (event.data.type === "RECIPIENT_INFO") {
+    const rBox = document.getElementById("recipient-box");
+    const { jobPosterName, jobPosterTitle, companyName, companyLink } = event.data.data;
+
+    if (rBox) {
+    // 处理职位发布者名字显示（如果没有，就显示 "No job poster info"）
+      let posterInfo = jobPosterName
+        ? `<strong>${jobPosterName}</strong> ${jobPosterTitle ? `(${jobPosterTitle})` : ""}`
+        : `<em>No job poster info available</em>`;
+
+    // 处理公司信息（如果有公司名则显示链接）
+      let companyInfo = companyName
+        ? `🏢 <a href="${companyLink}" target="_blank" rel="noopener noreferrer">${companyName}</a>`
+        : `<em>No company info found</em>`;
+
+      rBox.innerHTML = `
+        ${posterInfo}<br>
+        ${companyInfo}
+      `;
+    }
+    console.log("✅ Recipient info received in sidebar");
   }
 });
 
@@ -114,3 +138,4 @@ function addMessage(content, sender) {
   chatHistory.push({ sender, content });
   addMessageToChat(content, sender);
 }
+
