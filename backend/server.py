@@ -8,8 +8,9 @@ from flask_cors import CORS
 
 from mcp.types import TextContent
 
-from generate_followup_email import generate_followup_email
+from generate_followup_email import generate_email
 from email_handling import send_email_via_aurite
+from aurite_service import get_aurite
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
@@ -29,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message
 
 
 @app.route('/generate_email', methods=['POST'])
-def handle_generate_email():
+async def handle_generate_email():
     """
     处理生成邮件的 POST 请求
     """
@@ -57,7 +58,9 @@ def handle_generate_email():
         #     return jsonify({"error": "Missing required fields in request payload."}), 400
 
         # 调用生成邮件的方法
-        generated_email = generate_followup_email(resume, job_description)
+        aurite = get_aurite()
+        await aurite.initialize()
+        generated_email = await generate_email(resume, job_description)
 
         return jsonify({
             "generated_email": generated_email

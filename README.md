@@ -10,8 +10,11 @@
 
 2. **编辑 `.env` 文件**，填入您的实际配置：
    ```bash
-   OPENAI_API_KEY=your_openai_api_key
-   # ... 其他配置
+    OPENAI_API_KEY=YOUR_OPEN_AI_KEY
+
+    GOOGLE_CLIENT_ID=YOUR_CLIENT_ID # xxxx.apps.googleusercontent.com
+
+    GMAIL_MCP_CREDS_PATH= PATH_TO_FILE # ....\credentials.json, downloaded from GCP After creating client
    ```
 
 ### Google OAuth 配置说明
@@ -24,10 +27,14 @@
     chrome-extension://<your_extension_id>
     ```
     其中 `<your_extension_id>` 可在 Chrome 扩展开发者模式下加载后获得。
-5. 在“已授权的重定向 URI”中添加：
-    ```
-    chrome-extension://<your_extension_id>/oauth2callback.html
-    ```
+5. 配置完成后，在右边侧边栏Data Access（数据访问）页面添加范围（共四个）：
+    非敏感：
+    ./auth/userinfo.email
+    ./auth/userinfo.profile
+    .openid
+    受限：
+    ./auth/gmail.modify
+
 6. 创建后，复制生成的 **客户端 ID**，填写到 `.env` 文件的 `GOOGLE_CLIENT_ID` 字段：
     ```env
     GOOGLE_CLIENT_ID=your_actual_google_client_id
@@ -37,7 +44,7 @@
 > 详细步骤可参考 [Google 官方文档](https://developers.google.com/identity/protocols/oauth2)。
 
 
-3. **生成 manifest.json**：
+8. **生成 manifest.json**：
    ```bash
    python build_manifest.py
    ```
@@ -93,14 +100,14 @@
 
 ## 未来再做的
 
-### 1. 支持多用户的远程服务器部署
+### 1. 支持多用户的远程服务器部署(不做了暂时)
 - 将 Python 后端部署到云服务器（如 AWS、阿里云、腾讯云等），开放公网端口，支持多个用户同时访问，记得更新 gcp 授权的重定向链接
 
-### 2. 邮件发送功能
+### 2. 邮件发送功能（这个要做）
 - 发邮件时提示用户有多个可能的收件人，给用户选择
 
 
-### 数据追踪与用户历史面板
+### 数据追踪与用户历史面板（不做了暂时）
 - 前端增加“数据追踪”面板，展示用户已申请岗位数量、已发送邮件数量等历史数据。
 - 每次用户成功申请岗位或发送邮件后，前端将相关数据记录到 Chrome extension storage。
 - 数据追踪面板可随时查看历史统计信息，便于用户了解自己的求职进展。

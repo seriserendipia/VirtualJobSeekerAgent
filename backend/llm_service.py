@@ -38,13 +38,6 @@ def init_openai_client() -> OpenAI:
 
         return client
 
-    except openai.AuthenticationError:
-        print("\n❌ Authentication Error: The provided OpenAI API key is invalid or has expired.")
-    except openai.RateLimitError:
-        print("\n❌ Rate Limit Error: You have exceeded your current quota.")
-    except openai.APIConnectionError as e:
-        print("\n❌ Connection Error: Failed to connect to OpenAI's API.")
-        print(f"   Please check your network connection. Details: {e}")
     except Exception as e:
         print(f"\n❌ An unexpected error occurred: {e}")
 

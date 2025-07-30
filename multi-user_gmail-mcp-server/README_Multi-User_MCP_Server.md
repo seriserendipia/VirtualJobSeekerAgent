@@ -142,13 +142,13 @@ To test the server, use [MCP Inspector](https://modelcontextprotocol.io/docs/too
 From the git repo, run the below changing the parameter arguments accordingly.
 
 ```bash
-npx @modelcontextprotocol/inspector python server.py --creds-file-path "path/to/credentials.json"
+npx @modelcontextprotocol/inspector python gmail_mcp_server.py --creds-file-path "C:\Users\zli3\OneDrive\Desktop\GH\VirtualJobSeekerAgent-1\backend\credentials.json"
 ```
 
 **Windows Example:**
 ```bash
 ```bash
-npx @modelcontextprotocol/inspector python gmail-mcp-server\\server.py --creds-file-path "c:\\Users\\serendipity\\.gmail-mcp\\gcp-oauth.keys.json"
+npx @modelcontextprotocol/inspector python gmail-mcp-server\\gmail_mcp_server.py --creds-file-path "c:\\Users\\serendipity\\.gmail-mcp\\gcp-oauth.keys.json"
 ```
 ```
 

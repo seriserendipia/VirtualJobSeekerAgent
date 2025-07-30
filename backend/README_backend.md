@@ -14,6 +14,7 @@
 
 ```bash
 pip install openai python-dotenv
+pip install mcp google-auth google-auth-oauthlib google-api-python-client
 ```
 
 # 文件说明
