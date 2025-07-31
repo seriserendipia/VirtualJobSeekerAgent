@@ -94,7 +94,7 @@ def send_message(service, message):
 
 
 
-async def send_email_via_aurite(email_data=None):
+async def send_email_via_google_api(email_data=None):
     """
     主函数 - 使用Google Gmail API直接发送邮件
     

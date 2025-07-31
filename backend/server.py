@@ -9,7 +9,7 @@ from flask_cors import CORS
 from mcp.types import TextContent
 from generate_followup_email import generate_email, modify_email, extract_company_name_from_jd, extract_job_title_from_jd # New imports
 from web_search_agent import find_recruiter_email_via_web_search, setup_aurite_for_recruiter_search # NEW: Import setup_aurite_for_recruiter_search
-from email_handling import send_email_via_aurite
+from email_handling import send_email_via_google_api
 from aurite_service import get_aurite
 
 app = Flask(__name__)
@@ -235,7 +235,7 @@ async def handle_send_email():
 
     try:
         logging.info("Calling send_email_via_aurite...")
-        success, mcp_response = await send_email_via_aurite(email_data_with_token)
+        success, mcp_response = await send_email_via_google_api(email_data_with_token)
         logging.info(f"Email sending result - Success: {success}, Response: {type(mcp_response)}")
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
@@ -303,7 +303,7 @@ async def send_email_from_file():
         # 使用OAuth方式发送邮件
         if 'access_token' in final_email_data:
             logging.info(f'Processing file email with access_token: {final_email_data["access_token"][:20]}...')
-        success, mcp_response = await send_email_via_aurite(final_email_data)
+        success, mcp_response = await send_email_via_google_api(final_email_data)
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
         json_serializable_mcp_response = None
