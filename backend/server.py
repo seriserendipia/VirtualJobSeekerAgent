@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 from mcp.types import TextContent
 
-from generate_followup_email import generate_email
+from generate_followup_email import generate_email, modify_email # Add modify_email
 from email_handling import send_email_via_aurite
 from aurite_service import get_aurite
 
@@ -68,6 +68,49 @@ async def handle_generate_email():
 
     except Exception as e:
         logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/modify_email', methods=['POST'])
+async def handle_modify_email():
+    """
+    Handles POST requests for modifying an email (part of multi-turn conversation).
+    """
+    logging.info(f'Received modify_email request from {request.remote_addr}')
+
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            logging.error("Request body is empty or not valid JSON.")
+            return jsonify({"error": "Invalid JSON in request body."}), 400
+
+        # Get current email content and user feedback
+        current_subject = payload.get('subject')
+        current_body = payload.get('body')
+        user_feedback = payload.get('user_feedback')
+
+        if not all([current_subject, current_body, user_feedback]):
+            logging.error("Missing required fields (subject, body, user_feedback) in request payload for modification.")
+            return jsonify({"error": "Missing required fields for email modification."}), 400
+
+        logging.info(f"Modifying email with subject: '{current_subject[:50]}...' and feedback: '{user_feedback[:50]}...'")
+
+        # Call the email modification method
+        aurite = get_aurite() # Returns the singleton Aurite instance.
+        await aurite.initialize() # Ensure Aurite instance is initialized
+
+        revised_email = await modify_email(current_subject, current_body, user_feedback)
+
+        return jsonify({
+            "revised_email": revised_email
+        }), 200
+
+    except Exception as e:
+        logging.error(f'Failed to process modify_email request: {e}', exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 

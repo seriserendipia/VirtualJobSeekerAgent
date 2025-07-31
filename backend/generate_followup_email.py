@@ -3,7 +3,6 @@ import re
 import json
 from dotenv import load_dotenv
 from aurite import LLMConfig, AgentConfig
-import os
 from aurite_service import get_aurite
 
 def load_files(resume_path: str, jd_path: str) -> tuple:
@@ -80,15 +79,109 @@ async def generate_email(resume_content: str, jd_content: str) -> dict:
     email_json = parse_email_to_json(raw_content)
     return email_json
     
+# Step2: 新增一个 AgentConfig 用于邮件修改，或者考虑在 modify_email 内部动态创建
+# Define a new AgentConfig for email modification, or consider dynamic creation within modify_email.
+# For clarity, we define a new AgentConfig here.
+email_modifier_agent_config = AgentConfig(
+    name="Email Modifier Agent",
+    llm_config_id="fast_gpt", # Reuse the same LLM configuration
+    description="Modify emails based on user feedback via Aurite agent.",
+    input_type="text",
+    output_type="text",
+    # The system_prompt will be dynamically generated within the function
+)
+
+async def modify_email(current_email_subject: str, current_email_body: str, user_feedback: str) -> dict:
+    """
+    Modifies existing email content based on user feedback.
+    """
+    load_dotenv()
+    aurite = get_aurite() # Returns the singleton Aurite instance.
+    await aurite.register_llm_config(fast_llm) # Ensure LLM is registered
+
+    # Dynamically generate the system_prompt, including current email content and user feedback
+    dynamic_system_prompt = f"""
+        You are an experienced email revision assistant.
+        Here is the current email content you need to revise:
+
+        Subject: {current_email_subject}
+
+        Body:
+        {current_email_body}
+
+        The user wants to modify this email. Here is the user's feedback:
+        {user_feedback}
+
+        Please revise the email based on the user's feedback.
+        Output the revised email with exactly two parts labeled as below:
+
+        Subject: <the revised email subject line>
+
+        Body:
+        <the full revised email body text>
+
+        Do not add any explanations or extra notes.
+    """
+
+    # Register or update the modification Agent
+    # Note: If an AgentConfig with the same name is already registered, re-registering it updates it.
+    # To ensure the latest prompt is used for each modification, we re-register or update here.
+    email_modifier_agent = AgentConfig(
+        name="Email Modifier Agent",
+        llm_config_id="fast_gpt",
+        description="Modify emails based on user feedback via Aurite agent.",
+        input_type="text",
+        output_type="text",
+        system_prompt=dynamic_system_prompt # Use the dynamically generated prompt
+    )
+    await aurite.register_agent(email_modifier_agent)
+
+    result = await aurite.run_agent(agent_name="Email Modifier Agent",
+                                    user_message="Modify the email based on the provided feedback.")
+
+    raw_content = result.primary_text
+    email_json = parse_email_to_json(raw_content)
+    return email_json
+
 
 
 if __name__ == "__main__":
+    # --- Test generate_email ---
+    print("--- Testing initial email generation ---")
     resume_path = os.path.join(os.path.dirname(__file__), "..", "samples", "user_resume_sample.txt")
     jd_path = os.path.join(os.path.dirname(__file__), "..", "samples", "jobdescription_sample.txt")
 
     resume_content, jd_content = load_files(resume_path, jd_path)
 
-    email_dict = generate_followup_email(resume_content, jd_content)
+    # Use asyncio.run to execute the async function
+    import asyncio
+    initial_email_dict = asyncio.run(generate_email(resume_content, jd_content))
 
-    # 输出漂亮的 JSON 字符串
-    print(json.dumps(email_dict, indent=4, ensure_ascii=False))
+    print("\nGenerated Initial Email:")
+    print(json.dumps(initial_email_dict, indent=4, ensure_ascii=False))
+
+    # --- Test modify_email ---
+    print("\n--- Testing email modification ---")
+    # Simulate a user feedback
+    user_feedback_1 = "Please make the tone more enthusiastic and add a specific mention of my project X that is relevant to the job."
+    current_subject_1 = initial_email_dict.get("subject", "Generated Subject")
+    current_body_1 = initial_email_dict.get("body", "Generated Body")
+
+    try:
+        revised_email_dict_1 = asyncio.run(modify_email(current_subject_1, current_body_1, user_feedback_1))
+        print("\nRevised Email (Feedback 1):")
+        print(json.dumps(revised_email_dict_1, indent=4, ensure_ascii=False))
+    except Exception as e:
+        print(f"\nError during email modification (Feedback 1): {e}")
+
+    # Simulate another round of modification
+    user_feedback_2 = "Can you shorten the body to be more concise, focusing on key points only?"
+    current_subject_2 = revised_email_dict_1.get("subject", "Revised Subject 1")
+    current_body_2 = revised_email_dict_1.get("body", "Revised Body 1")
+
+    try:
+        revised_email_dict_2 = asyncio.run(modify_email(current_subject_2, current_body_2, user_feedback_2))
+        print("\nRevised Email (Feedback 2):")
+        print(json.dumps(revised_email_dict_2, indent=4, ensure_ascii=False))
+    except Exception as e:
+        print(f"\nError during email modification (Feedback 2): {e}")
