@@ -137,6 +137,7 @@ def extract_job_title_from_jd(jd_content: str) -> str | None:
 async def generate_email(resume_content: str, jd_content: str) -> dict:
     load_dotenv()
     aurite = get_aurite()
+    await aurite.initialize()  # Initialize Aurite first
     await aurite.register_llm_config(fast_llm)
 
     # --- New Logic: Try to extract email from JD first ---
@@ -215,6 +216,7 @@ async def modify_email(current_email_subject: str, current_email_body: str, user
     """
     load_dotenv()
     aurite = get_aurite() # Returns the singleton Aurite instance.
+    await aurite.initialize()  # Initialize Aurite first
     await aurite.register_llm_config(fast_llm) # Ensure LLM is registered
 
     # Dynamically generate the system_prompt, including current email content and user feedback
