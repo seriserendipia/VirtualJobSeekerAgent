@@ -34,50 +34,168 @@ fast_llm = LLMConfig(
 )
 
 # Step 1: Generate a email using aurite by calling OpenAI LLM
+# async def generate_email(resume_content: str, jd_content: str) -> dict:
+#     load_dotenv()
+#     aurite = get_aurite()
+#     # Register the LLMConfig first
+#     await aurite.register_llm_config(fast_llm)
+#     email_generator_agent = AgentConfig(
+#         name="Email Generate Agent",
+#         llm_config_id="fast_gpt",
+#         description="Send emails using Gmail MCP server via Aurite agent.",
+#         input_type="text",
+#         output_type="text",
+#         system_prompt=f"""
+#             You are an experienced job application assistant.
+#             Below is my resume:
+
+#             {resume_content}
+
+#             Below is the job description:
+
+#             {jd_content}
+
+#             Please write a professional follow-up email to the recruiter,
+#             expressing strong interest in this position,
+#             highlighting why I am a good fit,
+#             and politely asking for any updates about the application process.
+
+#             Output the email with exactly two parts labeled as below:
+
+#             Subject: <the email subject line>
+
+#             Body:
+#             <the full email body text>
+
+#             Do not add any explanations or extra notes.
+#         """
+#     )
+#     await aurite.register_agent(email_generator_agent)
+
+#     result = await aurite.run_agent(agent_name="Email Generate Agent",
+#                                     user_message="Generate an email based on the provided resume and job description.")
+
+#     raw_content = result.primary_text
+#     email_json = parse_email_to_json(raw_content)
+#     return email_json
+
+
+def extract_email_from_jd(jd_content: str) -> str | None:
+    """
+    Attempts to extract an email address from the job description content.
+    This is a simple regex; might need more sophisticated parsing.
+    """
+    # Regex to find common email patterns (e.g., something@domain.com)
+    email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+    match = re.search(email_pattern, jd_content)
+    if match:
+        return match.group(0)
+    return None
+
+def extract_company_name_from_jd(jd_content: str) -> str | None:
+    """
+    Attempts to extract the company name from the job description content.
+    This is a placeholder; real-world extraction can be complex.
+    Could use NLP models or look for "Company Name:" patterns.
+    For simplicity, let's assume the company name is often at the beginning or explicitly stated.
+    """
+    # Simple heuristic: look for "Company:" or assume first few words if no explicit tag.
+    # A more robust solution might involve another LLM call or a dedicated NLP library.
+    company_match = re.search(r"(?:Company|Employer)[:\s]*([A-Za-z0-9\s.,-]+)", jd_content, re.IGNORECASE)
+    if company_match:
+        return company_match.group(1).strip()
+    
+    # Fallback: simple heuristic for the first line or few words
+    first_line = jd_content.split('\n')[0].strip()
+    if len(first_line.split()) < 10 and "job description" not in first_line.lower():
+        return first_line.split(' for ')[0].strip() # e.g., "Software Engineer at Google" -> "Software Engineer at Google"
+    
+    # If LLM is good at extracting, could use it
+    # For now, return None if not easily found
+    return None
+
+def extract_job_title_from_jd(jd_content: str) -> str | None:
+    """
+    Attempts to extract the job title from the job description content.
+    Similar to company name extraction, this is a placeholder.
+    """
+    # Simple heuristic: often the first bolded or largest text.
+    # For now, let's assume it's part of the initial prompt or extract from first line.
+    title_match = re.search(r"(?:Job Title|Role)[:\s]*([A-Za-z0-9\s.,-]+)", jd_content, re.IGNORECASE)
+    if title_match:
+        return title_match.group(1).strip()
+    
+    # Fallback: assume it's often in the first line if not company name
+    first_line = jd_content.split('\n')[0].strip()
+    if len(first_line.split()) < 10 and "job description" not in first_line.lower():
+        return first_line.split(' at ')[0].strip() # e.g., "Software Engineer at Google" -> "Software Engineer"
+    
+    return None
+
+
+# Step 1: Generate an email using aurite by calling OpenAI LLM
 async def generate_email(resume_content: str, jd_content: str) -> dict:
     load_dotenv()
     aurite = get_aurite()
-    # Register the LLMConfig first
     await aurite.register_llm_config(fast_llm)
-    email_generator_agent = AgentConfig(
-        name="Email Generate Agent",
-        llm_config_id="fast_gpt",
-        description="Send emails using Gmail MCP server via Aurite agent.",
-        input_type="text",
-        output_type="text",
-        system_prompt=f"""
-            You are an experienced job application assistant.
-            Below is my resume:
 
-            {resume_content}
+    # --- New Logic: Try to extract email from JD first ---
+    potential_recipient_email = extract_email_from_jd(jd_content)
+    
+    if potential_recipient_email:
+        # If email found in JD, proceed with email generation
+        email_generator_agent = AgentConfig(
+            name="Email Generate Agent",
+            llm_config_id="fast_gpt",
+            description="Generate professional follow-up emails.",
+            input_type="text",
+            output_type="text",
+            system_prompt=f"""
+                You are an experienced job application assistant.
+                Below is my resume:
 
-            Below is the job description:
+                {resume_content}
 
-            {jd_content}
+                Below is the job description:
 
-            Please write a professional follow-up email to the recruiter,
-            expressing strong interest in this position,
-            highlighting why I am a good fit,
-            and politely asking for any updates about the application process.
+                {jd_content}
 
-            Output the email with exactly two parts labeled as below:
+                Please write a professional follow-up email to the recruiter,
+                expressing strong interest in this position,
+                highlighting why I am a good fit,
+                and politely asking for any updates about the application process.
 
-            Subject: <the email subject line>
+                Output the email with exactly two parts labeled as below:
 
-            Body:
-            <the full email body text>
+                Subject: <the email subject line>
 
-            Do not add any explanations or extra notes.
-        """
-    )
-    await aurite.register_agent(email_generator_agent)
+                Body:
+                <the full email body text>
 
-    result = await aurite.run_agent(agent_name="Email Generate Agent",
-                                    user_message="Generate an email based on the provided resume and job description.")
+                Do not add any explanations or extra notes.
+            """
+        )
+        await aurite.register_agent(email_generator_agent)
 
-    raw_content = result.primary_text
-    email_json = parse_email_to_json(raw_content)
-    return email_json
+        result = await aurite.run_agent(agent_name="Email Generate Agent",
+                                        user_message="Generate an email based on the provided resume and job description.")
+
+        raw_content = result.primary_text
+        email_json = parse_email_to_json(raw_content)
+        email_json["recipient"] = potential_recipient_email # Add found recipient to the output
+        return {"status": "email_generated", "email": email_json}
+    else:
+        # If no email found in JD, signal that web search is needed
+        company_name = extract_company_name_from_jd(jd_content)
+        job_title = extract_job_title_from_jd(jd_content) # Extract job title for more specific search
+        
+        return {
+            "status": "needs_web_search",
+            "company_name": company_name,
+            "job_title": job_title,
+            "message": "Recipient email not found in JD, web search is needed."
+        }
+    
     
 # Step2: 新增一个 AgentConfig 用于邮件修改，或者考虑在 modify_email 内部动态创建
 # Define a new AgentConfig for email modification, or consider dynamic creation within modify_email.

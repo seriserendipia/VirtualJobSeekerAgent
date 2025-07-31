@@ -7,8 +7,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from mcp.types import TextContent
-
-from generate_followup_email import generate_email, modify_email # Add modify_email
+from generate_followup_email import generate_email, modify_email, extract_company_name_from_jd, extract_job_title_from_jd # New imports
+from web_search_agent import find_recruiter_email_via_web_search, setup_aurite_for_recruiter_search # NEW: Import setup_aurite_for_recruiter_search
 from email_handling import send_email_via_aurite
 from aurite_service import get_aurite
 
@@ -29,10 +29,51 @@ CORS(app) # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
 
 
+# @app.route('/generate_email', methods=['POST'])
+# async def handle_generate_email():
+#     """
+#     处理生成邮件的 POST 请求
+#     """
+#     logging.info(f'Received generate_email request from {request.remote_addr}')
+
+#     if request.headers.get('X-From-Extension') != 'true':
+#         logging.warning("Request missing 'X-From-Extension: true' header.")
+#         return jsonify({"error": "Forbidden"}), 403
+
+#     try:
+#         payload = request.get_json(force=True)
+#         if not payload:
+#             logging.error("Request body is empty or not valid JSON.")
+#             return jsonify({"error": "Invalid JSON in request body."}), 400
+
+#         job_description = payload.get('job_description')
+#         resume = payload.get('resume')
+#         user_prompt = payload.get('user_prompt')
+
+#         print(f"Received payload: {payload}")
+
+#         # TODO:用户自定义的邮件 prompt 
+#         # if not all([job_description, resume, user_prompt]):
+#         #     logging.error("Missing required fields in request payload.")
+#         #     return jsonify({"error": "Missing required fields in request payload."}), 400
+
+#         # 调用生成邮件的方法
+#         aurite = get_aurite()
+#         await aurite.initialize()
+#         generated_email = await generate_email(resume, job_description)
+
+#         return jsonify({
+#             "generated_email": generated_email
+#         }), 200
+
+#     except Exception as e:
+#         logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+#         return jsonify({"error": str(e)}), 500
+
 @app.route('/generate_email', methods=['POST'])
 async def handle_generate_email():
     """
-    处理生成邮件的 POST 请求
+    处理生成邮件或触发招聘者邮箱搜索的 POST 请求。
     """
     logging.info(f'Received generate_email request from {request.remote_addr}')
 
@@ -48,23 +89,48 @@ async def handle_generate_email():
 
         job_description = payload.get('job_description')
         resume = payload.get('resume')
-        user_prompt = payload.get('user_prompt')
+        # user_prompt = payload.get('user_prompt') # Keep if needed, but not directly used in this flow
 
-        print(f"Received payload: {payload}")
+        if not all([job_description, resume]):
+            logging.error("Missing required fields (job_description, resume) in request payload.")
+            return jsonify({"error": "Missing required fields in request payload."}), 400
 
-        # TODO:用户自定义的邮件 prompt 
-        # if not all([job_description, resume, user_prompt]):
-        #     logging.error("Missing required fields in request payload.")
-        #     return jsonify({"error": "Missing required fields in request payload."}), 400
-
-        # 调用生成邮件的方法
         aurite = get_aurite()
         await aurite.initialize()
-        generated_email = await generate_email(resume, job_description)
 
-        return jsonify({
-            "generated_email": generated_email
-        }), 200
+        # Call generate_email, which now decides if it needs a web search
+        generation_result = await generate_email(resume, job_description)
+
+        if generation_result["status"] == "email_generated":
+            logging.info("Email generated successfully.")
+            return jsonify({
+                "status": "email_generated",
+                "generated_email": generation_result["email"]
+            }), 200
+        elif generation_result["status"] == "needs_web_search":
+            logging.info("Recipient email not found in JD, initiating web search.")
+            company_name = generation_result.get("company_name")
+            job_title = generation_result.get("job_title")
+
+            if not company_name:
+                # Fallback if company name extraction fails from JD initially
+                company_name = extract_company_name_from_jd(job_description) 
+                if not company_name:
+                     logging.warning("Could not extract company name for web search.")
+                     return jsonify({"status": "error", "message": "Could not extract company name from JD for web search."}), 400
+
+            # Trigger the web search agent
+            web_search_results = await find_recruiter_email_via_web_search(company_name, job_title)
+            
+            logging.info(f"Web search completed. Results: {web_search_results}")
+            return jsonify({
+                "status": "web_search_initiated",
+                "search_results": web_search_results,
+                "message": "Recipient email not found in JD. Initiated web search for contact information. Please review results and confirm recipient."
+            }), 200
+        else:
+            logging.error(f"Unexpected status from generate_email: {generation_result['status']}")
+            return jsonify({"error": "An unexpected error occurred during email generation."}), 500
 
     except Exception as e:
         logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
@@ -273,4 +339,11 @@ def handle_root():
 if __name__ == '__main__':
     HOST = '127.0.0.1'
     PORT = 5000
+
+    # NEW: Run Aurite setup once at application startup
+    # This will register the LLMConfig, ClientConfig, and AgentConfig for web search.
+    # We do this here to avoid re-registering them on every incoming request.
+    import asyncio
+    asyncio.run(setup_aurite_for_recruiter_search()) # Call the setup function
+    
     app.run(host=HOST, port=PORT, debug=True)
