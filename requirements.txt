@@ -1,0 +1,23 @@
+# 核心 Web 框架
+Flask==3.1.1
+Flask-CORS==6.0.1
+
+# 环境变量管理
+python-dotenv==1.1.1
+
+# Google API (Gmail功能)
+google-api-python-client==2.176.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.2
+
+# AI 和 MCP
+aurite==0.3.27
+mcp==1.11.0
+
+# 网络请求
+requests==2.32.4
+requests-oauthlib==2.0.0
+
+# OpenAI (如果使用)
+openai==1.97.1
