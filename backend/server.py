@@ -13,11 +13,19 @@ from email_handling import send_email_via_aurite
 from aurite_service import get_aurite
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes
-# TODO: 修改 cors 只允许 Chrome 扩展和特定域名访问
-# CORS(app, resources={r"/*": {
-#     "origins": [
-#         "http://localhost:3000", 
+
+# CORS配置 - 使用预测的Railway URL
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:3000",  # 本地开发
+            "https://virtualjobseekeragent-production.up.railway.app",  # 预测的Railway URL
+            "chrome-extension://*",  # Chrome扩展
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "X-From-Extension"]
+    }
+}) 
 #         "https://your-frontend-domain.com",
 #         "chrome-extension://*",
 ##         "chrome-extension://<your-extension-id>"  # 这里记得要配置扩展 id
@@ -228,6 +236,11 @@ def handle_root():
         return "Forbidden", 403
 
 if __name__ == '__main__':
-    HOST = '127.0.0.1'
-    PORT = 5000
-    app.run(host=HOST, port=PORT, debug=True)
+    import os
+    HOST = '0.0.0.0'  # 允许外部访问
+    PORT = int(os.environ.get('PORT', 5000))  # Railway会提供PORT环境变量
+    
+    print(f"🚀 云服务器启动在: {HOST}:{PORT}")
+
+    
+    app.run(host=HOST, port=PORT, debug=False)  # 生产环境关闭debug

@@ -1,3 +1,6 @@
+// 引入配置文件 (确保config.js先加载)
+const SERVER_URL = getServerUrl();
+
 // Google授权类，用于获取这个浏览器登录的Google邮箱的access_token
 class GoogleAuth {
     // 获取访问令牌 - Chrome扩展专用方式
@@ -132,7 +135,7 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
       user_prompt: userInput                      // 用户提问
     };
 
-    const res = await fetch("http://localhost:5000/generate_email", {
+    const res = await fetch(`${SERVER_URL}/generate_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -197,7 +200,7 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
     responseBox.innerText = "📧 正在发送邮件...";
 
     // 调用后端API，传递token和结构化的邮件数据
-    const res = await fetch("http://localhost:5000/send-email-from-file", {
+    const res = await fetch(`${SERVER_URL}/send-email-from-file`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
