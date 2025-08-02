@@ -21,11 +21,7 @@
 ```python
 if __name__ == '__main__':
     print("🚀 后端服务器启动在: http://localhost:5000")
-    
-    # NEW: Run Aurite setup once at application startup
-    import asyncio
-    asyncio.run(setup_aurite_for_recruiter_search())
-    
+
     app.run(host='127.0.0.1', port=5000, debug=True)
 ```
 
@@ -38,9 +34,6 @@ if __name__ == '__main__':
     
     print(f"🚀 云服务器启动在: {HOST}:{PORT}")
     
-    # NEW: Run Aurite setup once at application startup
-    import asyncio
-    asyncio.run(setup_aurite_for_recruiter_search())
     
     app.run(host=HOST, port=PORT, debug=False)  # 生产环境关闭debug
 ```

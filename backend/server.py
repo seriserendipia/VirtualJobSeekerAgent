@@ -2,17 +2,63 @@ import os
 import json
 import logging
 import traceback
+import sys
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from mcp.types import TextContent
 
-from generate_followup_email import generate_email
-from email_handling import send_email_via_aurite
-from aurite_service import get_aurite
+print("🔄 开始导入模块...")
+try:
+    from generate_followup_email import generate_email
+    print("✅ generate_followup_email 导入成功")
+    
+    from email_handling import send_email_via_aurite
+    print("✅ email_handling 导入成功")
+    
+    from aurite_service import get_aurite
+    print("✅ aurite_service 导入成功")
+    
+except Exception as e:
+    print(f"❌ 模块导入失败: {e}")
+    import traceback
+    traceback.print_exc()
 
 app = Flask(__name__)
+
+@app.before_request
+def log_all_requests():
+    """在所有请求处理前记录详细信息"""
+    print("=" * 60)
+    print(f"🌐 [INCOMING REQUEST] {request.method} {request.path}")
+    print(f"📍 Remote Address: {request.remote_addr}")
+    print(f"🌍 Host: {request.host}")
+    print(f"🔗 URL: {request.url}")
+    print(f"📋 Headers:")
+    for header, value in request.headers:
+        print(f"   {header}: {value}")
+    
+    # 检查是否是 CORS 预检请求
+    if request.method == 'OPTIONS':
+        print("🔄 这是一个 CORS 预检请求")
+    
+    print("=" * 60)
+    
+    # 强制刷新输出
+    sys.stdout.flush()
+
+@app.after_request
+def log_response(response):
+    """记录响应信息"""
+    print("=" * 60)
+    print(f"📤 [RESPONSE] Status: {response.status_code}")
+    print(f"📋 Response Headers:")
+    for header, value in response.headers:
+        print(f"   {header}: {value}")
+    print("=" * 60)
+    sys.stdout.flush()
+    return response
 
 # 环境配置函数
 def get_environment_config():
@@ -62,12 +108,13 @@ def get_environment_config():
 # 获取当前环境配置
 config = get_environment_config()
 
-# CORS配置 - 根据环境动态配置
+# CORS配置 - 临时使用宽松配置进行调试
 CORS(app, resources={
     r"/*": {
-        "origins": config['cors_origins'],
+        "origins": ["*"],  # 临时允许所有来源进行调试
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "X-From-Extension"]
+        "allow_headers": ["Content-Type", "X-From-Extension", "Authorization"],
+        "supports_credentials": False
     }
 })
 
@@ -87,6 +134,20 @@ def health_check():
         "host": config['host'],
         "port": config['port']
     }), 200
+
+
+@app.route('/health', methods=['OPTIONS'])
+def handle_health_options():
+    """处理 health 的 OPTIONS 预检请求"""
+    print("🔄 处理 health 的 OPTIONS 预检请求")
+    return '', 200
+
+
+@app.route('/generate_email', methods=['OPTIONS'])
+def handle_generate_email_options():
+    """处理 generate_email 的 OPTIONS 预检请求"""
+    print("🔄 处理 generate_email 的 OPTIONS 预检请求")
+    return '', 200
 
 
 @app.route('/generate_email', methods=['POST'])
@@ -288,24 +349,50 @@ def handle_root():
         return "Forbidden", 403
 
 if __name__ == '__main__':
+    print("🔧 开始启动服务器...")
+    print(f"Python 版本: {sys.version}")
+    print(f"Flask 版本: {app.__class__.__module__}")
+    print(f"当前工作目录: {os.getcwd()}")
+    
+    # 环境变量检查
+    print("🌍 环境变量:")
+    railway_vars = [k for k in os.environ.keys() if 'RAILWAY' in k]
+    for var in railway_vars:
+        print(f"   {var}: {os.environ.get(var)}")
+    print(f"   PORT: {os.environ.get('PORT')}")
+    print(f"   ENVIRONMENT: {os.environ.get('ENVIRONMENT')}")
+    
     # 使用配置中的环境设置
     HOST = config['host']
     PORT = config['port']
     DEBUG = config['debug']
     
+    print(f"🚀 服务器配置:")
+    print(f"   Host: {HOST}")
+    print(f"   Port: {PORT}")
+    print(f"   Debug: {DEBUG}")
+    print(f"   Environment: {config['environment']}")
+    print(f"   CORS Origins: {config['cors_origins']}")
+    
     if config['environment'] == 'production':
         print(f"🚀 生产环境服务器启动在: {HOST}:{PORT}")
         logging.info(f"Production environment detected, starting server on {HOST}:{PORT}")
     else:
-        print(f"� 本地开发服务器启动在: http://{HOST}:{PORT}")
+        print(f"🏠 本地开发服务器启动在: http://{HOST}:{PORT}")
         logging.info(f"Local development environment, starting server on {HOST}:{PORT}")
     
     # 显示CORS配置用于调试
     print(f"📡 CORS允许的来源: {config['cors_origins']}")
     print(f"🌍 当前环境: {config['environment']}")
     
+    print("⏳ 正在启动 Flask 应用...")
+    sys.stdout.flush()
+    
     try:
         app.run(host=HOST, port=PORT, debug=DEBUG)
     except Exception as e:
         logging.error(f"Failed to start server: {e}")
         print(f"❌ 服务器启动失败: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
