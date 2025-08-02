@@ -2,20 +2,135 @@
 
 ## 🚀 快速开始
 
-### 环境配置
-1. **复制环境变量文件**：
+### 1. 环境准备
+
+确保你已安装：
+- Python 3.8+
+- pip
+- Chrome浏览器
+
+### 2. 克隆和安装
+
+```bash
+# 克隆项目
+git clone <your-repo-url>
+cd VirtualJobSeekerAgent
+
+# 创建虚拟环境
+python -m venv agent_env
+
+# 激活虚拟环境
+# Windows:
+agent_env\Scripts\activate
+# macOS/Linux:
+source agent_env/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 3. 环境配置
+
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑 .env 文件，至少设置：
+# GOOGLE_CLIENT_ID=your-google-oauth-client-id
+# ENVIRONMENT=local
+```
+
+### 4. 构建配置文件
+
+```bash
+# 生成 manifest.json 和 config.js
+python build_manifest.py
+```
+
+你应该看到类似输出：
+```
+🔨 开始构建配置文件...
+✅ 成功生成 frontend/manifest.json
+✅ 成功生成 frontend/config.js (环境: local -> LOCAL)
+🎉 所有配置文件构建完成！
+```
+
+
+
+## 🛠️ 故障排除
+
+### 502错误
+1. **检查环境配置**：
    ```bash
-   cp .env.example .env
+   # 访问健康检查端点
+   curl -H "X-From-Extension: true" http://127.0.0.1:5000/health
    ```
 
-2. **编辑 `.env` 文件**，填入您的实际配置：
+2. **检查前端URL配置**：
+   - 确认 `frontend/config.js` 中的URL配置正确
+   - 前端会自动尝试本地连接，失败后切换到云端
+
+3. **检查CORS设置**：
+   - 本地环境允许 `http://127.0.0.1:5000`
+   - 生产环境允许 Railway域名
+
+### 本地无法访问
+1. **检查环境变量**：
    ```bash
-    OPENAI_API_KEY=YOUR_OPEN_AI_KEY
-
-    GOOGLE_CLIENT_ID=YOUR_CLIENT_ID # xxxx.apps.googleusercontent.com
-
-    GMAIL_MCP_CREDS_PATH= PATH_TO_FILE # ....\credentials.json, downloaded from GCP After creating client
+   # 不设置ENVIRONMENT或设置为local
+   unset ENVIRONMENT
+   # 或
+   export ENVIRONMENT=local
    ```
+
+2. **检查端口占用**：
+   ```bash
+   # Windows
+   netstat -ano | findstr :5000
+   # macOS/Linux
+   lsof -i :5000
+   ```
+
+3. **检查防火墙设置**：
+   - 确保端口5000未被防火墙阻止
+
+### Chrome扩展连接问题
+1. **检查manifest.json权限**：
+   ```json
+   {
+     "permissions": [
+       "http://127.0.0.1:5000/*",
+       "http://localhost:5000/*"
+     ]
+   }
+   ```
+
+2. **重新加载扩展**：
+   - 在Chrome扩展管理页面重新加载扩展
+
+### 环境自动检测问题
+如果自动检测环境不准确，可以手动设置：
+```bash
+# 本地开发
+export ENVIRONMENT=local
+
+# 生产部署  
+export ENVIRONMENT=production
+```
+
+## 注意事项
+- Python后端仅为演示，未做多线程/异常处理。
+- 前端与后端通信需允许CORS，生产环境请加强安全性。
+- 建议在生产环境使用HTTPS和更严格的CORS策略。``bash
+OPENAI_API_KEY=YOUR_OPEN_AI_KEY
+GOOGLE_CLIENT_ID=YOUR_CLIENT_ID # xxxx.apps.googleusercontent.com
+GMAIL_MCP_CREDS_PATH=PATH_TO_FILE # ....\credentials.json, downloaded from GCP After creating client
+
+# 可选：手动指定环境 (通常会自动检测)
+# ENVIRONMENT=local    # 本地开发
+# ENVIRONMENT=production    # 生产部署
+```
+
 
 ### Google OAuth 配置说明
 
@@ -44,14 +159,15 @@
 > 详细步骤可参考 [Google 官方文档](https://developers.google.com/identity/protocols/oauth2)。
 
 
-8. **生成 manifest.json**：
-   ```bash
+8. **生成 manifest.json和config.js
+ ```bash
+   echo "ENVIRONMENT=local" >> .env
    python build_manifest.py
    ```
-   或者直接运行：
-   ```bash
-   start_dev.bat
-   ```
+   生成 `frontend/manifest.json` 文件，并检查是否正确。
+   确保 `frontend/manifest.json` 文件中 `"permissions"` 字段包含 `"http://127.0.0.1:5000/*"` 和 `"http://localhost:5000/*"`。
+
+
 
 ### 启动方式
 1. 命令行启动后端  
@@ -68,6 +184,31 @@
 > **说明：**  
 > - 后端（`server.py`）会一直监听本地 5000 端口。  
 > - 只有当前端（Chrome 扩展）点击按钮时，前端的 JS 代码才会通过 HTTP 请求访问后端。  
+
+
+
+### Railway 部署
+
+1. **准备部署**：
+   ```bash
+   # 设置生产环境
+   echo "ENVIRONMENT=production" >> .env
+   python build_manifest.py
+   ```
+
+2. **Railway 配置**：
+   - 连接GitHub仓库
+   - 设置环境变量：
+     ```
+     ENVIRONMENT=production
+     GOOGLE_CLIENT_ID=your-production-client-id
+     OPENAI_API_KEY=your-openai-key
+     ```
+
+3. **自动部署**：
+   - 推送代码到GitHub
+   - Railway自动构建和部署
+
 
 
 ## 目录结构

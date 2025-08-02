@@ -27,6 +27,7 @@ extension/node_modules/
 
 # Frontend generated files
 frontend/manifest.json
+frontend/config.js
 
 # System
 .DS_Store

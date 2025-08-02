@@ -14,27 +14,79 @@ from aurite_service import get_aurite
 
 app = Flask(__name__)
 
-# CORS配置 - 使用预测的Railway URL
+# 环境配置函数
+def get_environment_config():
+    """
+    根据环境变量检测和返回当前环境配置
+    """
+    # 检查环境变量
+    environment = os.environ.get('ENVIRONMENT')
+    
+    # 如果没有设置ENVIRONMENT，进行自动检测
+    if not environment:
+        # 检测Railway环境
+        if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_PROJECT_ID'):
+            environment = 'production'
+        # 检测是否有非默认端口（云端特征）
+        elif os.environ.get('PORT') and os.environ.get('PORT') != '5000':
+            environment = 'production'
+        else:
+            environment = 'local'
+    
+    # 根据环境返回配置
+    if environment == 'local':
+        return {
+            'environment': 'local',
+            'host': '127.0.0.1',
+            'port': int(os.environ.get('PORT', 5000)),
+            'debug': True,
+            'cors_origins': [
+                "http://localhost:3000",
+                "http://localhost:5000", 
+                "http://127.0.0.1:5000",
+                "chrome-extension://*",
+            ]
+        }
+    else:  # production
+        return {
+            'environment': 'production',
+            'host': '0.0.0.0',
+            'port': int(os.environ.get('PORT', 5000)),
+            'debug': False,
+            'cors_origins': [
+                "https://virtualjobseekeragent-production.up.railway.app",
+                "chrome-extension://*",
+            ]
+        }
+
+# 获取当前环境配置
+config = get_environment_config()
+
+# CORS配置 - 根据环境动态配置
 CORS(app, resources={
     r"/*": {
-        "origins": [
-            "http://localhost:3000",  # 本地开发
-            "https://virtualjobseekeragent-production.up.railway.app",  # 预测的Railway URL
-            "chrome-extension://*",  # Chrome扩展
-        ],
+        "origins": config['cors_origins'],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "X-From-Extension"]
     }
-}) 
-#         "https://your-frontend-domain.com",
-#         "chrome-extension://*",
-##         "chrome-extension://<your-extension-id>"  # 这里记得要配置扩展 id
-#     ]
-# }})
+})
 
 
 # Configure logging for Flask
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """健康检查端点"""
+    return jsonify({
+        "status": "healthy", 
+        "environment": config['environment'],
+        "timestamp": "2025-08-01",
+        "cors_origins": config['cors_origins'],
+        "host": config['host'],
+        "port": config['port']
+    }), 200
 
 
 @app.route('/generate_email', methods=['POST'])
@@ -236,11 +288,24 @@ def handle_root():
         return "Forbidden", 403
 
 if __name__ == '__main__':
-    import os
-    HOST = '0.0.0.0'  # 允许外部访问
-    PORT = int(os.environ.get('PORT', 5000))  # Railway会提供PORT环境变量
+    # 使用配置中的环境设置
+    HOST = config['host']
+    PORT = config['port']
+    DEBUG = config['debug']
     
-    print(f"🚀 云服务器启动在: {HOST}:{PORT}")
-
+    if config['environment'] == 'production':
+        print(f"🚀 生产环境服务器启动在: {HOST}:{PORT}")
+        logging.info(f"Production environment detected, starting server on {HOST}:{PORT}")
+    else:
+        print(f"� 本地开发服务器启动在: http://{HOST}:{PORT}")
+        logging.info(f"Local development environment, starting server on {HOST}:{PORT}")
     
-    app.run(host=HOST, port=PORT, debug=False)  # 生产环境关闭debug
+    # 显示CORS配置用于调试
+    print(f"📡 CORS允许的来源: {config['cors_origins']}")
+    print(f"🌍 当前环境: {config['environment']}")
+    
+    try:
+        app.run(host=HOST, port=PORT, debug=DEBUG)
+    except Exception as e:
+        logging.error(f"Failed to start server: {e}")
+        print(f"❌ 服务器启动失败: {e}")
