@@ -20,6 +20,19 @@ try:
     from aurite_service import get_aurite
     print("✅ aurite_service 导入成功")
     
+    from credentials_manager import get_gmail_credentials_path, validate_credentials_file
+    print("✅ credentials_manager 导入成功")
+    
+    # 验证Gmail凭据配置
+    try:
+        creds_path = get_gmail_credentials_path()
+        if validate_credentials_file(creds_path):
+            print(f"✅ Gmail凭据验证成功: {creds_path}")
+        else:
+            print(f"⚠️ Gmail凭据验证失败: {creds_path}")
+    except Exception as e:
+        print(f"⚠️ Gmail凭据配置问题: {e}")
+    
 except Exception as e:
     print(f"❌ 模块导入失败: {e}")
     import traceback

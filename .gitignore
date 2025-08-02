@@ -7,6 +7,13 @@ __pycache__/
 .env
 *.sqlite3
 
+# Credentials and secrets
+client_secret_*.json
+credentials.json
+*credentials*.json
+*.key
+*.pem
+
 # Conda
 conda/
 *.conda

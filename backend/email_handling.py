@@ -1,6 +1,7 @@
 import os
 import logging
 from aurite import Aurite, AgentConfig
+from credentials_manager import get_gmail_credentials_path
 
 
 # 配置日志记录
@@ -85,7 +86,7 @@ async def register_gmail_server_with_token(aurite):
             "args": [
                 mcp_server_path,
                 "--creds-file-path",
-                os.getenv("GMAIL_MCP_CREDS_PATH", "")  # 从.env读取路径
+                get_gmail_credentials_path()  # 使用新的凭据管理器
             ],
             "capabilities": ["tools"],
             "timeout": 30.0,  # 增加超时时间
