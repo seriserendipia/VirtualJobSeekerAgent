@@ -9,6 +9,78 @@ from flask_cors import CORS
 
 from mcp.types import TextContent
 
+# ===== 应用程序启动时打印所有环境变量 =====
+print("=" * 100)
+print("🌍 [APPLICATION STARTUP] 完整环境变量列表:")
+print(f"📍 应用启动时间: {__import__('datetime').datetime.now()}")
+print(f"🐍 Python 进程ID: {os.getpid()}")
+print(f"📂 当前工作目录: {os.getcwd()}")
+print("=" * 100)
+
+# 按分类显示环境变量
+def print_env_vars():
+    all_env_vars = dict(os.environ)
+    
+    # 分类显示
+    categories = {
+        "🚂 Railway相关": ['RAILWAY_', 'PORT'],
+        "🔑 API密钥": ['API_KEY', 'SECRET', 'TOKEN'],
+        "📧 Gmail凭据": ['GMAIL_', 'GOOGLE_'],
+        "🎯 应用配置": ['ENVIRONMENT', 'DEBUG', 'HOST'],
+        "🔧 其他重要": ['PATH', 'HOME', 'USER', 'PYTHONPATH']
+    }
+    
+    for category, keywords in categories.items():
+        print(f"\n{category}:")
+        found_vars = {}
+        for key, value in all_env_vars.items():
+            if any(keyword in key.upper() for keyword in keywords):
+                # 对敏感信息进行脱敏处理
+                if any(sensitive in key.upper() for sensitive in ['SECRET', 'KEY', 'TOKEN', 'PASSWORD']):
+                    if len(value) > 20:
+                        display_value = f"{value[:10]}...{value[-5:]}"
+                    else:
+                        display_value = f"{value[:5]}..."
+                else:
+                    display_value = value
+                found_vars[key] = display_value
+        
+        if found_vars:
+            for key, value in sorted(found_vars.items()):
+                print(f"   {key}: {value}")
+        else:
+            print(f"   (无相关变量)")
+    
+    # 显示所有环境变量的数量
+    print(f"\n📊 环境变量统计:")
+    print(f"   总数: {len(all_env_vars)} 个")
+    print(f"   Railway相关: {len([k for k in all_env_vars.keys() if 'RAILWAY' in k.upper()])} 个")
+    print(f"   API密钥相关: {len([k for k in all_env_vars.keys() if any(x in k.upper() for x in ['KEY', 'SECRET', 'TOKEN'])])} 个")
+    
+    # 关键检查项
+    print(f"\n🔍 关键配置检查:")
+    critical_vars = {
+        'ENVIRONMENT': '应用环境',
+        'PORT': 'HTTP端口',
+        'RAILWAY_ENVIRONMENT': 'Railway环境',
+        'OPENAI_API_KEY': 'OpenAI API密钥',
+        'SMITHERY_API_KEY': 'Smithery API密钥',
+        'GMAIL_MCP_CREDS_PATH': 'Gmail凭据路径(本地)',
+        'GMAIL_MCP_CREDS_JSON': 'Gmail凭据JSON(生产)'
+    }
+    
+    for var_name, description in critical_vars.items():
+        value = os.environ.get(var_name)
+        status = "✅ 存在" if value else "❌ 缺失"
+        if value and any(sensitive in var_name.upper() for sensitive in ['SECRET', 'KEY', 'TOKEN']):
+            length_info = f" (长度: {len(value)}字符)"
+        else:
+            length_info = f" (值: {value})" if value else ""
+        print(f"   {var_name}: {status}{length_info} - {description}")
+
+print_env_vars()
+print("=" * 100)
+
 print("🔄 开始导入模块...")
 try:
     from generate_followup_email import generate_email
