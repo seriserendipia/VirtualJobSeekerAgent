@@ -8,13 +8,23 @@ import logging
 from mcp.types import CallToolResult, TextContent 
 
 
-
-from email_handling import send_email_via_mcp 
+from generate_followup_email import generate_followup_email
+from email_handling import send_email_via_aurite
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
+# TODO: 修改 cors 只允许 Chrome 扩展和特定域名访问
+# CORS(app, resources={r"/*": {
+#     "origins": [
+#         "http://localhost:3000", 
+#         "https://your-frontend-domain.com",
+#         "chrome-extension://*",
+##         "chrome-extension://<your-extension-id>"  # 这里记得要配置扩展 id
+#     ]
+# }})
 
 SMITHERY_API_KEY = "334a9cb0-9b76-4fe0-89e3-e206bb32fa93"
+# TODO: 这个密钥暴露了，要删掉
 
 # Gmail AutoAuth MCP Server 
 MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/server-gmail-autoauth-mcp"]
@@ -22,6 +32,45 @@ MCP_SERVER_COMMAND_LIST = ["npx", "@smithery/cli@latest", "run", "@gongrzhe/serv
 # Configure logging for Flask
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
 
+
+@app.route('/generate_email', methods=['POST'])
+def handle_generate_email():
+    """
+    处理生成邮件的 POST 请求
+    """
+    logging.info(f'Received generate_email request from {request.remote_addr}')
+
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            logging.error("Request body is empty or not valid JSON.")
+            return jsonify({"error": "Invalid JSON in request body."}), 400
+
+        job_description = payload.get('job_description')
+        resume = payload.get('resume')
+        user_prompt = payload.get('user_prompt')
+
+        print(f"Received payload: {payload}")
+
+        # TODO:用户自定义的邮件 prompt 
+        # if not all([job_description, resume, user_prompt]):
+        #     logging.error("Missing required fields in request payload.")
+        #     return jsonify({"error": "Missing required fields in request payload."}), 400
+
+        # 调用生成邮件的方法
+        generated_email = generate_followup_email(resume, job_description)
+
+        return jsonify({
+            "generated_email": generated_email
+        }), 200
+
+    except Exception as e:
+        logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 
@@ -42,10 +91,8 @@ async def handle_send_email():
         logging.info(f'Parsed email data: {email_data}')
 
         # Call the imported function, passing necessary parameters
-        success, mcp_response = await send_email_via_mcp(
-            email_data, 
-            SMITHERY_API_KEY, 
-            MCP_SERVER_COMMAND_LIST
+        success, mcp_response = await send_email_via_aurite(
+            email_data
         )
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
@@ -70,29 +117,41 @@ async def handle_send_email():
         
 
 # send email from a JSON file for now, future will be from frontend? 
-@app.route('/send-email-from-file', methods=['GET']) 
+@app.route('/send-email-from-file', methods=['POST']) 
 async def send_email_from_file():
     logging.info(f'Received request to send email from file from {request.remote_addr}')
     
-    email_file_name = 'email_content.json'
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, email_file_name)
-
-    if not os.path.exists(file_path):
-        logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
-        return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return "Forbidden", 403
 
     try:
+        email_content_data = request.get_json(force=True)
+        if not email_content_data:
+            logging.error("Request body is empty or not valid JSON.")
+            return "Invalid JSON in request body.", 400
+
+        logging.info(f'Parsed email data: {email_content_data}')
+
+        email_file_name = 'email_content.json'
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, email_file_name)
+
+        if not os.path.exists(file_path):
+            logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
+            return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
+
         with open(file_path, 'r', encoding='utf-8') as f:
             email_data_from_file = json.load(f)
+
+        logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data}")
         
-        logging.info(f"Loaded email data from file: {email_data_from_file}")
+        if isinstance(email_data_from_file, dict):
+            email_data_from_file.update({"body": email_content_data["emailContent"]})  # Merge with any additional data from the request
 
         # Call the imported function, passing necessary parameters
-        success, mcp_response = await send_email_via_mcp(
-            email_data_from_file, 
-            SMITHERY_API_KEY, 
-            MCP_SERVER_COMMAND_LIST
+        success, mcp_response = await send_email_via_aurite(
+            email_data_from_file
         )
 
         # Handle CallToolResult object for JSON serialization (this part remains in server.py)

@@ -3,11 +3,12 @@
 ## 启动方式
 1. 命令行启动后端  
     进入 `backend/` 目录，运行 `python server.py` 文件，启动后端服务
-2. 进入Chrome扩展（也叫‘插件’）：在浏览器右上角，点击 'Extensions图标 ——— Manage Extensions'，进入'Extensions'，打开页面右上角开发者模式'Developer mode'，点击'Load unpacked'，加载 extension/ 目录，可看到我们的'Virtual job seeker agent 1.0'扩展成功导入
-3. 点击我们的'Virtual job seeker agent 1.0'扩展弹窗按钮，会弹出'Hello, Chrome Extension!'黑体字样
+2. 进入Chrome扩展（也叫‘插件’）：在浏览器右上角，点击 'Extensions图标 ——— Manage Extensions'，进入'Extensions'，打开页面右上角开发者模式'Developer mode'，点击'Load unpacked'，加载 frontend/ 目录，可看到我们的'Job seeker agent 1.0'扩展成功导入
+3. 打开Linkedin Job，应该会自动加载侧边栏
 ![扩展加载演示](Tutorial/1.png)
-4. 继续点击'Send to backend'，有弹窗显示'Backend says: Hello from Python backend.'表明全部跑通成功！
+4. 上传简历，点击生成邮件，然后再点击发送（注意真的会发到email_content.json中指定的邮箱！）                                                              
 ![前后端交互演示](Tutorial/2.png)
+![前后端交互演示](Tutorial/3.png)
 
 （原理大致解释：前端会通过 `fetch` 请求访问本地 5000 端口，后端监听5000端口，并从5000端口发送信息给前端）
 
@@ -18,7 +19,8 @@
 
 
 ## 目录结构
-- extension/  Chrome扩展前端
+- frontend/   Chrome扩展前端
+- (已废除)extension/  Chrome扩展前端
 - backend/    Python后端
 - samples/    示例数据和对话样例（如：chatbot_dialog_sample.txt）
 
@@ -47,7 +49,11 @@
 ## 未来再做的
 
 ### 1. 支持多用户的远程服务器部署
-- 将 Python 后端部署到云服务器（如 AWS、阿里云、腾讯云等），开放公网端口，支持多个用户同时访问
+- 将 Python 后端部署到云服务器（如 AWS、阿里云、腾讯云等），开放公网端口，支持多个用户同时访问，记得更新 gcp 授权的重定向链接
+
+### 2. 邮件发送功能
+- 发邮件时提示用户有多个可能的收件人，给用户选择
+
 
 ### 数据追踪与用户历史面板
 - 前端增加“数据追踪”面板，展示用户已申请岗位数量、已发送邮件数量等历史数据。
@@ -55,7 +61,6 @@
 - 数据追踪面板可随时查看历史统计信息，便于用户了解自己的求职进展。
 - 前端根据用户的求职历史，自动判断是否需要进行 follow up，并通过 HTTP 请求通知后端。
 - 后端收到请求后，生成并推送 follow up 邮件提醒，提升用户的跟进效率。
-
 
 
 ## 注意事项

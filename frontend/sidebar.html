@@ -3,36 +3,80 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="sidebar.css" />
+  <style>
+    /* 默认隐藏发送按钮 */
+    #send-email-btn {
+      display: none;
+    }
+    .info-box {
+      margin-bottom: 10px;
+    }
+    .info-box label {
+      font-weight: bold;
+      margin-right: 5px;
+    }
+    .chat-box {
+      border: 1px solid #ddd;
+      padding: 10px;
+      height: 200px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      background-color: #fafafa;
+    }
+    .bubble {
+      padding: 8px;
+      border-radius: 6px;
+      margin: 5px 0;
+    }
+    .bubble.user {
+      background-color: #d1e7dd;
+      text-align: right;
+    }
+    .bubble.ai {
+      background-color: #e2e3e5;
+      text-align: left;
+    }
+  </style>
 </head>
 <body>
   <div id="container">
     <h2>🎯 Job AI Assistant</h2>
 
-    <!-- ✅ 新增：JD 预览区 -->
+    <!-- ✅ 公司 & 岗位信息 -->
+    <div class="info-box">
+      <label>🏢 Company:</label>
+      <input type="text" id="company-name" readonly />
+    </div>
+
+    <div class="info-box">
+      <label>💼 Job Title:</label>
+      <input type="text" id="job-title" readonly />
+    </div>
+
+    <!-- ✅ JD 预览区 -->
     <h3>📄 Job Description Preview</h3>
     <div id="jd-preview" class="preview-box">No JD loaded</div>
-    
-    <!-- ✅ 新增：收件人信息区块 -->
-    <h3>📧 Suggested Recipients</h3>
-    <div id="recipient-box" class="preview-box">Looking for contacts...</div>
 
-    <!-- ✅ 用户输入 -->
-    <textarea id="user-input" placeholder="Ask something about this job..."></textarea>
+    <!-- ✅ 聊天区 -->
+    <h3>💬 Chat</h3>
+    <div id="chat-box" class="chat-box"></div>
+    <textarea id="user-input" placeholder="Type your question here..."></textarea>
+    <button id="send-chat-btn">Send</button>
 
-    <!-- ✅ 简历上传 + 生成按钮 -->
+    <!-- ✅ Resume 上传 & 生成邮件按钮 -->
     <div class="action-row">
       <label for="resume-upload" class="custom-file-upload">📄 Upload Resume</label>
       <input type="file" id="resume-upload" accept=".txt,.pdf,.doc,.docx" />
       <p id="resume-status" class="small-text">📎 No resume uploaded</p>
 
       <button id="generate-btn">🚀 Generate Email</button>
+      <button id="send-email-from-file-btn" style="display:none;">📧 Send Email</button>
     </div>
 
-    <!-- ✅ 聊天气泡区域 -->
-    <div id="chat-box" class="chat-box"></div>
-    <p class="placeholder">Generated email will appear here.</p>
+    <div class="placeholder">Generated email will appear here.</div>
   </div>
 
   <script src="sidebar.js"></script>
 </body>
 </html>
+
