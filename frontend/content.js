@@ -11,13 +11,9 @@ iframe.style.zIndex = "9999";
 iframe.style.boxShadow = "0 0 10px rgba(0,0,0,0.3)";
 document.body.appendChild(iframe);
 
-// === 监听 LinkedIn 页面变化并提取 JD ===
+// === 提取 Job Description ===
 function extractAndSendJobDescription() {
-  let jdElement = document.querySelector("#job-details");
-
-  if (!jdElement) {
-    jdElement = document.querySelector(".jobs-box__html-content");
-  }
+  let jdElement = document.querySelector("#job-details") || document.querySelector(".jobs-box__html-content");
 
   if (jdElement) {
     const jobDescription = jdElement.innerText.trim();
@@ -31,52 +27,29 @@ function extractAndSendJobDescription() {
   }
 }
 
-// === 新增：提取职位发布者 & 公司信息 ===
-function extractAndSendRecipients() {
-  // 🔵 Job poster（大部分职位没有，保留空值）
-  let jobPosterName = "";
-  let jobPosterTitle = "";
+// === 新增：提取公司名 & 岗位名 ===
+function extractAndSendJobInfo() {
+  // ✅ 获取职位名称
+  const titleEl = document.querySelector(".job-details-jobs-unified-top-card__job-title h1 a");
+  const jobTitle = titleEl ? titleEl.innerText.trim() : "";
 
-  // 🔵 公司信息
-  let companyName = "";
-  let companyLink = "";
+  // ✅ 获取公司名称
+  const companyEl = document.querySelector(".job-details-jobs-unified-top-card__company-name a");
+  const companyName = companyEl ? companyEl.innerText.trim() : "";
 
-  // ✅ 新的更精准选择器（定位到公司名称链接）
-  const companyEl = document.querySelector(".artdeco-entity-lockup__title a");
-
-  if (companyEl) {
-    companyName = companyEl.innerText.trim();
-
-    // LinkedIn 给的链接是相对路径，需要加前缀
-    const rawLink = companyEl.getAttribute("href");
-    if (rawLink.startsWith("/")) {
-      // LinkedIn 默认链接带 /life/，点进去又回到职位页，我们去掉 /life/
-      let cleanLink = rawLink.replace(/\/life\/?$/, "");
-      companyLink = `https://www.linkedin.com${cleanLink}`;
-    } else {
-      companyLink = rawLink;
-    }
-  }
-
-  // ✅ 发送给 sidebar
   iframe.contentWindow.postMessage({
-    type: "RECIPIENT_INFO",
-    data: {
-      jobPosterName,
-      jobPosterTitle,
-      companyName,
-      companyLink
-    }
+    type: "JOB_INFO",
+    companyName,
+    jobTitle
   }, "*");
 
-  console.log("✅ Recipient info sent:", { jobPosterName, jobPosterTitle, companyName, companyLink });
+  console.log("✅ Job info sent:", { companyName, jobTitle });
 }
 
-
-// === 使用 MutationObserver 检测页面内容变化 ===
+// === 监听 LinkedIn 页面变化 ===
 const observer = new MutationObserver(() => {
   extractAndSendJobDescription();
-  extractAndSendRecipients();
+  extractAndSendJobInfo();
 });
 
 observer.observe(document.body, {
@@ -84,9 +57,9 @@ observer.observe(document.body, {
   subtree: true,
 });
 
-// === 初始加载后稍等 1 秒也触发一次（保险） ===
+// === 初始加载时触发一次（保险） ===
 setTimeout(() => {
   extractAndSendJobDescription();
-  extractAndSendRecipients();
+  extractAndSendJobInfo();
 }, 1000);
 
