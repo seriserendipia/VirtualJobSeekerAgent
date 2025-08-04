@@ -7,20 +7,20 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from mcp.types import TextContent
-from generate_followup_email import generate_email, modify_email, extract_company_name_from_jd, extract_job_title_from_jd # New imports
-from web_search_agent import find_recruiter_email_via_web_search, setup_aurite_for_recruiter_search # NEW: Import setup_aurite_for_recruiter_search
+from generate_followup_email import generate_email, modify_email, extract_company_name_from_jd, extract_job_title_from_jd, extract_email_from_jd
+from web_search_agent import find_recruiter_email_via_web_search, setup_aurite_for_recruiter_search
 from email_handling import send_email_via_google_api
 from aurite_service import get_aurite
 
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
-# TODO: 修改 cors 只允许 Chrome 扩展和特定域名访问
+# TODO: Modify CORS to allow only Chrome extension and specific domains
 # CORS(app, resources={r"/*": {
 #     "origins": [
-#         "http://localhost:3000", 
+#         "http://localhost:3000",
 #         "https://your-frontend-domain.com",
 #         "chrome-extension://*",
-##         "chrome-extension://<your-extension-id>"  # 这里记得要配置扩展 id
+##         "chrome-extension://<your-extension-id>"  # Remember to configure extension ID here
 #     ]
 # }})
 
@@ -29,169 +29,15 @@ CORS(app) # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
 
 
-# # @app.route('/generate_email', methods=['POST'])
-# # async def handle_generate_email():
-# #     """
-# #     处理生成邮件的 POST 请求
-# #     """
-# #     logging.info(f'Received generate_email request from {request.remote_addr}')
-
-# #     if request.headers.get('X-From-Extension') != 'true':
-# #         logging.warning("Request missing 'X-From-Extension: true' header.")
-# #         return jsonify({"error": "Forbidden"}), 403
-
-# #     try:
-# #         payload = request.get_json(force=True)
-# #         if not payload:
-# #             logging.error("Request body is empty or not valid JSON.")
-# #             return jsonify({"error": "Invalid JSON in request body."}), 400
-
-# #         job_description = payload.get('job_description')
-# #         resume = payload.get('resume')
-# #         user_prompt = payload.get('user_prompt')
-
-# #         print(f"Received payload: {payload}")
-
-# #         # TODO:用户自定义的邮件 prompt 
-# #         # if not all([job_description, resume, user_prompt]):
-# #         #     logging.error("Missing required fields in request payload.")
-# #         #     return jsonify({"error": "Missing required fields in request payload."}), 400
-
-# #         # 调用生成邮件的方法
-# #         aurite = get_aurite()
-# #         await aurite.initialize()
-# #         generated_email = await generate_email(resume, job_description)
-
-# #         return jsonify({
-# #             "generated_email": generated_email
-# #         }), 200
-
-# #     except Exception as e:
-# #         logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
-# #         return jsonify({"error": str(e)}), 500
-
-# @app.route('/generate_email', methods=['POST'])
-# async def handle_generate_email():
-#     """
-#     处理生成邮件或触发招聘者邮箱搜索的 POST 请求。
-#     """
-#     logging.info(f'Received generate_email request from {request.remote_addr}')
-
-#     if request.headers.get('X-From-Extension') != 'true':
-#         logging.warning("Request missing 'X-From-Extension: true' header.")
-#         return jsonify({"error": "Forbidden"}), 403
-
-#     try:
-#         payload = request.get_json(force=True)
-#         if not payload:
-#             logging.error("Request body is empty or not valid JSON.")
-#             return jsonify({"error": "Invalid JSON in request body."}), 400
-
-#         job_description = payload.get('job_description')
-#         resume = payload.get('resume')
-#         # user_prompt = payload.get('user_prompt') # Keep if needed, but not directly used in this flow
-
-#         if not all([job_description, resume]):
-#             logging.error("Missing required fields (job_description, resume) in request payload.")
-#             return jsonify({"error": "Missing required fields in request payload."}), 400
-
-#         aurite = get_aurite()
-#         await aurite.initialize()
-
-#         # Call generate_email, which now decides if it needs a web search
-#         generation_result = await generate_email(resume, job_description)
-
-#         if generation_result["status"] == "email_generated":
-#             logging.info("Email generated successfully.")
-#             return jsonify({
-#                 "status": "email_generated",
-#                 "generated_email": generation_result["email"]
-#             }), 200
-#         elif generation_result["status"] == "needs_web_search":
-#             logging.info("Recipient email not found in JD, initiating web search.")
-#             company_name = generation_result.get("company_name")
-#             job_title = generation_result.get("job_title")
-
-#             if not company_name:
-#                 # Fallback if company name extraction fails from JD initially
-#                 company_name = extract_company_name_from_jd(job_description) 
-#                 if not company_name:
-#                      logging.warning("Could not extract company name for web search.")
-#                      return jsonify({"status": "error", "message": "Could not extract company name from JD for web search."}), 400
-
-#             # Trigger the web search agent
-#             web_search_results = await find_recruiter_email_via_web_search(company_name, job_title)
-            
-#             logging.info(f"Web search completed. Results: {web_search_results}")
-#             return jsonify({
-#                 "status": "web_search_initiated",
-#                 "search_results": web_search_results,
-#                 "message": "Recipient email not found in JD. Initiated web search for contact information. Please review results and confirm recipient."
-#             }), 200
-#         else:
-#             logging.error(f"Unexpected status from generate_email: {generation_result['status']}")
-#             return jsonify({"error": "An unexpected error occurred during email generation."}), 500
-
-#     except Exception as e:
-#         logging.error(f'Failed to process generate_email request: {e}', exc_info=True)
-#         return jsonify({"error": str(e)}), 500
-
-
-# # @app.route('/modify_email', methods=['POST'])
-# # async def handle_modify_email():
-# #     """
-# #     Handles POST requests for modifying an email (part of multi-turn conversation).
-# #     """
-# #     logging.info(f'Received modify_email request from {request.remote_addr}')
-
-# #     if request.headers.get('X-From-Extension') != 'true':
-# #         logging.warning("Request missing 'X-From-Extension: true' header.")
-# #         return jsonify({"error": "Forbidden"}), 403
-
-# #     try:
-# #         payload = request.get_json(force=True)
-# #         if not payload:
-# #             logging.error("Request body is empty or not valid JSON.")
-# #             return jsonify({"error": "Invalid JSON in request body."}), 400
-
-# #         # Get current email content and user feedback
-# #         current_subject = payload.get('subject')
-# #         current_body = payload.get('body')
-# #         user_feedback = payload.get('user_feedback')
-
-# #         if not all([current_subject, current_body, user_feedback]):
-# #             logging.error("Missing required fields (subject, body, user_feedback) in request payload for modification.")
-# #             return jsonify({"error": "Missing required fields for email modification."}), 400
-
-# #         logging.info(f"Modifying email with subject: '{current_subject[:50]}...' and feedback: '{user_feedback[:50]}...'")
-
-# #         # Call the email modification method
-# #         aurite = get_aurite() # Returns the singleton Aurite instance.
-# #         await aurite.initialize() # Ensure Aurite instance is initialized
-
-# #         revised_email = await modify_email(current_subject, current_body, user_feedback)
-
-# #         return jsonify({
-# #             "revised_email": revised_email
-# #         }), 200
-
-#     except Exception as e:
-#         logging.error(f'Failed to process modify_email request: {e}', exc_info=True)
-#         return jsonify({"error": str(e)}), 500
-
-# Configure logging for Flask
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [Server] %(message)s')
-
-# 移除全局获取 aurite_instance 的代码，因为它将在每个路由内部获取和初始化
-
-@app.route('/manage_email_flow', methods=['POST'])
-async def handle_email_flow():
+@app.route('/generate_and_modify_email', methods=['POST'])
+async def handle_generate_and_modify_email():
     """
-    处理邮件的生成和修改流程。
-    首次请求通常只包含 resume 和 job_description。
-    后续请求会包含 current_subject, current_body 和 user_feedback。
+    Handles email generation and modification requests.
+    Initial requests typically contain resume and job_description.
+    Subsequent requests will contain current_subject, current_body, and user_feedback.
+    Outputs only the email subject and body.
     """
-    logging.info(f'Received email flow request from {request.remote_addr}')
+    logging.info(f'Received generate_and_modify_email request from {request.remote_addr}')
 
     if request.headers.get('X-From-Extension') != 'true':
         logging.warning("Request missing 'X-From-Extension: true' header.")
@@ -203,26 +49,24 @@ async def handle_email_flow():
             logging.error("Request body is empty or not valid JSON.")
             return jsonify({"error": "Invalid JSON in request body."}), 400
 
-        # 在每个请求中获取并初始化 Aurite 实例
-        aurite = get_aurite() #
-        await aurite.initialize() #
+        # Get and initialize Aurite instance for each request
+        aurite = get_aurite()
+        await aurite.initialize()
 
-        # 检查是否是修改邮件的请求
         current_subject = payload.get('current_subject')
         current_body = payload.get('current_body')
         user_feedback = payload.get('user_feedback')
 
         if current_subject and current_body and user_feedback:
-            # 这是修改邮件的请求
+            # This is an email modification request
             logging.info("Attempting to modify existing email.")
-            # 调用 modify_email，它会使用当前请求中获取的 Aurite 实例
-            revised_email = await modify_email(current_subject, current_body, user_feedback) #
+            revised_email = await modify_email(current_subject, current_body, user_feedback)
             return jsonify({
-                "status": "email_modified",
-                "revised_email": revised_email
+                "subject": revised_email.get("subject", ""),
+                "body": revised_email.get("body", "")
             }), 200
         else:
-            # 这是首次生成邮件的请求
+            # This is an initial email generation request
             job_description = payload.get('job_description')
             resume = payload.get('resume')
 
@@ -231,43 +75,108 @@ async def handle_email_flow():
                 return jsonify({"error": "Missing required fields for initial email generation."}), 400
 
             logging.info("Attempting to generate initial email.")
-            # 调用 generate_email，它会使用当前请求中获取的 Aurite 实例
-            generation_result = await generate_email(resume, job_description) #
+            generation_result = await generate_email(resume, job_description)
 
             if generation_result["status"] == "email_generated":
                 logging.info("Email generated successfully.")
+                generated_email = generation_result["email"]
                 return jsonify({
-                    "status": "email_generated",
-                    "generated_email": generation_result["email"]
+                    "subject": generated_email.get("subject", ""),
+                    "body": generated_email.get("body", "")
                 }), 200
             elif generation_result["status"] == "needs_web_search":
-                logging.info("Recipient email not found in JD, initiating web search.")
-                company_name = generation_result.get("company_name")
-                job_title = generation_result.get("job_title")
-
-                if not company_name:
-                    # Fallback if company name extraction fails from JD initially
-                    company_name = extract_company_name_from_jd(job_description) #
-                    if not company_name:
-                         logging.warning("Could not extract company name for web search.")
-                         return jsonify({"status": "error", "message": "Could not extract company name from JD for web search."}), 400
-
-                # Trigger the web search agent
-                web_search_results = await find_recruiter_email_via_web_search(company_name, job_title) #
-
-                logging.info(f"Web search completed. Results: {web_search_results}")
+                logging.info("Recipient email not found in JD, web search is needed. Returning partial email for now.")
+                # If web search is needed, we still return the generated email (if any)
+                # and let the frontend decide to call /find_recruiter_email
+                generated_email = generation_result.get("email", {"subject": "", "body": ""})
                 return jsonify({
-                    "status": "web_search_initiated",
-                    "search_results": web_search_results,
-                    "message": "Recipient email not found in JD. Initiated web search for contact information. Please review results and confirm recipient."
-                }), 200
+                    "subject": generated_email.get("subject", ""),
+                    "body": generated_email.get("body", ""),
+                    "message": "Recipient email not found in JD. Please call /find_recruiter_email to search for contact information."
+                }), 200 # Return 200 even if web search is needed, as email generation was successful to some extent
             else:
                 logging.error(f"Unexpected status from generate_email: {generation_result['status']}")
                 return jsonify({"error": "An unexpected error occurred during email generation."}), 500
 
     except Exception as e:
-        logging.error(f'Failed to process email flow request: {e}', exc_info=True)
+        logging.error(f'Failed to process email generation/modification request: {e}', exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/find_recruiter_email', methods=['POST'])
+async def handle_find_recruiter_email():
+    """
+    Handles requests to find recruiter email via web search.
+    Outputs success/fail status and either the found email or relevant URLs.
+    """
+    logging.info(f'Received find_recruiter_email request from {request.remote_addr}')
+
+    if request.headers.get('X-From-Extension') != 'true':
+        logging.warning("Request missing 'X-From-Extension: true' header.")
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            logging.error("Request body is empty or not valid JSON.")
+            # Changed to "status" and "result" for error cases as well for consistency
+            return jsonify({"status": "Fail", "result": "Invalid JSON in request body."}), 400
+
+        job_description = payload.get('job_description')
+        company_name = payload.get('company_name') # These variables will be passed from the frontend.
+        job_title = payload.get('job_title')     # They are kept as is.
+
+        if not job_description and not (company_name and job_title):
+            logging.error("Missing required fields: either 'job_description' or both 'company_name' and 'job_title' are needed for web search.")
+            # Changed to "status" and "result"
+            return jsonify({"status": "Fail", "result": "Missing required input for search (job_description or company_name/job_title)."}), 400
+
+        # --- NEW LOGIC: Prioritize extracting email from job_description ---
+        found_email_in_jd = None
+        if job_description:
+            found_email_in_jd = extract_email_from_jd(job_description)
+            if found_email_in_jd:
+                logging.info(f"Found email in job description: {found_email_in_jd}. Skipping web search.")
+                return jsonify({
+                    "status": "Success",
+                    "result": found_email_in_jd # Directly return the email as the result
+                }), 200
+        # --- END NEW LOGIC ---
+
+        # If only job_description is provided (and no email was found in it), try to extract company and job title from it
+        if job_description and not (company_name and job_title):
+            company_name = extract_company_name_from_jd(job_description)
+            job_title = extract_job_title_from_jd(job_description)
+            if not company_name:
+                logging.warning("Could not extract company name from JD for web search.")
+                # Changed to "status" and "result"
+                return jsonify({"status": "Fail", "result": "Could not extract company name from job description for web search."}), 400
+
+        # Get and initialize Aurite instance for each request
+        aurite = get_aurite()
+        await aurite.initialize()
+        await setup_aurite_for_recruiter_search() # Ensure the web search agent is set up
+
+        logging.info(f"Initiating web search for company: {company_name}, job: {job_title}")
+        web_search_results = await find_recruiter_email_via_web_search(company_name, job_title)
+
+        found_email_from_web = web_search_results.get("found_email")
+        relevant_urls_from_web = web_search_results.get("relevant_urls", [])
+
+        if found_email_from_web:
+            return jsonify({
+                "status": "Success",
+                "result": found_email_from_web # Return the found email
+            }), 200
+        else:
+            return jsonify({
+                "status": "Fail",
+                "result": relevant_urls_from_web # Return relevant URLs if no email found
+            }), 200
+
+    except Exception as e:
+        logging.error(f'Failed to process recruiter email search request: {e}', exc_info=True)
+        # Changed to "status" and "result"
+        return jsonify({"status": "Fail", "result": str(e)}), 500
     
 def validate_request():
     """
