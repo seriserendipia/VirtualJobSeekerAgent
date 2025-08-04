@@ -8,3 +8,5 @@ Conducted A/B tests and behavioral analysis to support product decision-making
 Created Tableau dashboards to monitor user engagement and core KPIs
 
 Collaborated with engineers to improve event tracking and data quality
+
+litinghuan0519@gmail.com
