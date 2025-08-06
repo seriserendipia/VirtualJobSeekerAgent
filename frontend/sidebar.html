@@ -4,10 +4,6 @@
   <meta charset="UTF-8" />
   <link rel="stylesheet" href="sidebar.css" />
   <style>
-    /* 默认隐藏发送按钮 */
-    #send-email-btn {
-      display: none;
-    }
     .info-box {
       margin-bottom: 10px;
     }
@@ -57,12 +53,6 @@
     <h3>📄 Job Description Preview</h3>
     <div id="jd-preview" class="preview-box">No JD loaded</div>
 
-    <!-- ✅ 聊天区 -->
-    <h3>💬 Chat</h3>
-    <div id="chat-box" class="chat-box"></div>
-    <textarea id="user-input" placeholder="Type your question here..."></textarea>
-    <button id="send-chat-btn">Send</button>
-
     <!-- ✅ Resume 上传 & 生成邮件按钮 -->
     <div class="action-row">
       <label for="resume-upload" class="custom-file-upload">📄 Upload Resume</label>
@@ -70,10 +60,19 @@
       <p id="resume-status" class="small-text">📎 No resume uploaded</p>
 
       <button id="generate-btn">🚀 Generate Email</button>
-      <button id="send-email-from-file-btn" style="display:none;">📧 Send Email</button>
     </div>
 
+    <!-- ✅ 邮件生成结果显示区 -->
     <div class="placeholder">Generated email will appear here.</div>
+
+    <!-- ✅ 聊天区 (移到下面) -->
+    <h3>💬 Modify Email</h3>
+    <div id="chat-box" class="chat-box"></div>
+    <textarea id="user-input" placeholder="Type your modification request here..."></textarea>
+    <button id="send-chat-btn">Modify Email</button>
+    
+    <!-- 发送邮件按钮移到最底部 -->
+    <button id="send-email-from-file-btn" style="display:none;">📧 Send Email</button>
   </div>
 
   <script src="sidebar.js"></script>

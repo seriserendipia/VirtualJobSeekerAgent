@@ -1,4 +1,6 @@
-// Google授权类，用于获取这个浏览器登录的Google邮箱的access_token
+// ============================
+// Google授权类
+// ============================
 class GoogleAuth {
     // 获取访问令牌 - Chrome扩展专用方式
     async getAccessToken() {
@@ -27,13 +29,24 @@ class GoogleAuth {
     }
 }
 
-// 全局实例
+// ============================
+// 全局变量
+// ============================
 window.googleAuth = new GoogleAuth();
 
 let currentJobDescription = "";
-let resumeConteaddMessageToChatnt = "";
+let resumeContent = "";
+let chatHistory = [];
 
-// ✅ 简历上传处理
+// 保存结构化的邮件数据到全局变量，初始化为示例邮件
+window.generatedEmailData = {
+  subject: "Sample Mail:Follow-up on Job Application",
+  body: "Dear Hiring Manager,\n\nI am excited to apply for the position and believe my skills are a great match.\n\nBest regards,\n[Your Name]"
+};
+
+// ============================
+// 简历上传处理
+// ============================
 document.getElementById("resume-upload").addEventListener("change", function (event) {
   const file = event.target.files[0];
   const statusEl = document.getElementById("resume-status");
@@ -65,159 +78,16 @@ document.getElementById("resume-upload").addEventListener("change", function (ev
   }
 });
 
-// ✅ 恢复之前保存的简历内容
-window.addEventListener("DOMContentLoaded", () => {
-  const savedResume = localStorage.getItem("resumeText");
-  const statusEl = document.getElementById("resume-status");
-
-  if (savedResume) {
-    resumeContent = savedResume;
-    if (statusEl) {
-      statusEl.innerText = "📄 Resume restored from last session.";
-    }
-    console.log("✅ Resume restored from localStorage");
-  }
-});
-
-// ✅ 接收 Job Description + 公司 & 岗位名
-window.addEventListener("message", (event) => {
-  if (event.data.type === "JOB_DESCRIPTION") {
-    currentJobDescription = event.data.data;
-    const jdBox = document.getElementById("jd-preview");
-    if (jdBox) jdBox.innerText = currentJobDescription.slice(0, 1000) + "...";
-  }
-
-  if (event.data.type === "JOB_INFO") {
-    console.log("📥 Got job info:", event.data);
-    document.getElementById("company-name").value = event.data.companyName || "N/A";
-    document.getElementById("job-title").value = event.data.jobTitle || "N/A";
-  }
-});
-
-// ✅ 聊天功能
-document.getElementById("send-chat-btn").addEventListener("click", async () => {
-  const userInput = document.getElementById("user-input");
-  const chatBox = document.getElementById("chat-box");
-
-  const text = userInput.value.trim();
-  if (!text) return;
-
-  // 1️⃣ 添加用户消息
-  addMessageToChat(text, "user");
-  userInput.value = "";
-
-  // 2️⃣ 添加 AI 占位消息
-  addMessageToChat("Thinking...", "ai");
-
-  // 3️⃣ 发送到后端（这里 mock）
-  try {
-    const res = await fetch("http://localhost:5000/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text })
-    });
-
-    const data = await res.json();
-    document.querySelectorAll(".bubble.ai").slice(-1)[0].innerText = data.reply || "[Mock reply from backend]";
-  } catch (err) {
-    console.error("❌ Chat error:", err);
-    document.querySelectorAll(".bubble.ai").slice(-1)[0].innerText = "[Error: failed to get response]";
-  }
-});
-
-function addMessageToChat(content, sender = "ai") {
-  const chatBox = document.getElementById("chat-box");
-  const bubble = document.createElement("div");
-  bubble.className = `bubble ${sender}`;
-  bubble.innerText = content;
-  chatBox.appendChild(bubble);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// ✅ Generate Email / Send Email 逻辑（保持团队原代码）
-document.getElementById("generate-btn").addEventListener("click", async () => {
-  const userInput = document.getElementById("user-input").value;
-  const responseBox = document.querySelector(".placeholder");
-  const sendEmailBtn = document.getElementById("send-email-from-file-btn");
-
-  responseBox.innerText = "⏳ Generating email... Please wait.";
-
-  try {
-    const payload = {
-      job_description: currentJobDescription,
-      resume: resumeContent,
-      user_prompt: userInput
-    };
-
-    const res = await fetch("http://localhost:5000/generate_email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-From-Extension": "true"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      throw new Error(`Server error: ${res.status}`);
-    }
-
-    const result = await res.json();
-    if (result.generated_email && typeof result.generated_email === 'object') {
-      const subject = result.generated_email.subject || '';
-      const body = result.generated_email.body || '';
-      responseBox.innerText = `📧 Generated Email\n\nSubject: ${subject}\n\n${body}`;
-    } else {
-      responseBox.innerText = `📧 Generated Email:\n\n${result.generated_email || "(No content returned)"}`;
-    }
-
-    sendEmailBtn.style.display = 'inline-block';
-
-  } catch (err) {
-    console.error("[ERROR] Failed to fetch email:", err);
-    responseBox.innerText = "❌ Failed to generate email. Please try again.";
-  }
-});
-
-// 保存结构化的邮件数据到全局变量，初始化为示例邮件
-window.generatedEmailData = {
-  subject: "Sample Mail:Follow-up on Job Application",
-  body: "Dear Hiring Manager,\n\nI am excited to apply for the position and believe my skills are a great match.\n\nBest regards,\n[Your Name]"
-};
-
-
-
-// 简历上传处理
-document.getElementById("send-email-from-file-btn").addEventListener("click", async () => {
-  alert('Attempting to send email using data from email_content.json...');
-  const responseBox = document.querySelector(".placeholder");
-  const emailContent = responseBox.innerText;
-
-  if (!emailContent || emailContent.includes("Generating email")) {
-    responseBox.innerText = "❌ Please generate an email first.";
-    return;
-  }
-  const res = await fetch("http://localhost:5000/send-email-from-file", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-From-Extension": "true",
-    },
-    body: JSON.stringify({ emailContent }),
-  });
-
-  const result = await res.json();
-  if (!result.success) {
-    console.error("[ERROR] Email sending failed:", result.error);
-  }
-});
-// 恢复之前保存的简历内容和显示初始邮件
+// ============================
+// 页面加载事件处理
+// ============================
 window.addEventListener("DOMContentLoaded", () => {
   const savedResume = localStorage.getItem("resumeText");
   const statusEl = document.getElementById("resume-status");
   const responseBox = document.querySelector(".placeholder");
   const sendEmailBtn = document.getElementById("send-email-from-file-btn");
 
+  // 恢复之前保存的简历内容
   if (savedResume) {
     resumeContent = savedResume;
     if (statusEl) {
@@ -236,36 +106,171 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Job Description预览区，接收来自 content.js 的消息
+// ============================
+// 获取网页显示的jd和 公司名
+// ============================
 window.addEventListener("message", (event) => {
   if (event.data.type === "JOB_DESCRIPTION") {
     currentJobDescription = event.data.data;
-
-    // 可选：在页面显示前 300 字预览
     const jdBox = document.getElementById("jd-preview");
-    if (jdBox) {
-      jdBox.innerText = currentJobDescription.slice(0, 1000) + '...';  // 可自行调整显示长度
+    if (jdBox) jdBox.innerText = currentJobDescription.slice(0, 1000) + "...";
+  }
+
+  if (event.data.type === "JOB_INFO") {
+    console.log("📥 Got job info:", event.data);
+    document.getElementById("company-name").value = event.data.companyName || "N/A";
+    document.getElementById("job-title").value = event.data.jobTitle || "N/A";
+  }
+});
+
+// ============================
+// 聊天功能
+// ============================
+function addMessageToChat(content, sender = "ai") {
+  const chatBox = document.getElementById("chat-box");
+  const bubble = document.createElement("div");
+  bubble.className = `bubble ${sender}`;
+  bubble.innerText = content;
+  chatBox.appendChild(bubble);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function addMessage(content, sender) {
+  chatHistory.push({ sender, content });
+  addMessageToChat(content, sender);
+}
+
+document.getElementById("send-chat-btn").addEventListener("click", async () => {
+  const userInput = document.getElementById("user-input");
+  const chatBox = document.getElementById("chat-box");
+
+  const text = userInput.value.trim();
+  if (!text) return;
+
+  // 检查是否已有生成的邮件数据
+  if (!window.generatedEmailData || !window.generatedEmailData.subject || !window.generatedEmailData.body) {
+    addMessageToChat("❌ Please generate an email first before making modifications.", "ai");
+    return;
+  }
+
+  // 1️⃣ 添加用户消息
+  addMessageToChat(text, "user");
+  userInput.value = "";
+
+  // 2️⃣ 添加 AI 占位消息
+  addMessageToChat("Modifying email...", "ai");
+
+  // 3️⃣ 发送到后端修改邮件
+  try {
+    const payload = {
+      job_description: currentJobDescription,
+      resume: resumeContent,
+      current_subject: window.generatedEmailData?.subject || "",
+      current_body: window.generatedEmailData?.body || "",
+      user_prompt: text // 用户的修改要求
+    };
+
+    console.log("🔍 [DEBUG] Sending modification request:", {
+      job_description_length: currentJobDescription?.length || 0,
+      resume_length: resumeContent?.length || 0,
+      current_subject: payload.current_subject,
+      current_body_length: payload.current_body?.length || 0,
+      user_prompt: payload.user_prompt
+    });
+
+    const res = await fetch("http://localhost:5000/generate_and_modify_email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-From-Extension": "true"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    console.log("🔍 [DEBUG] Response status:", res.status);
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
+
+    const result = await res.json();
+    console.log("🔍 [DEBUG] Response data:", result);
+    
+    // 处理后端统一返回格式：{subject: "...", body: "...", message?: "..."
+    const subject = result.subject || '';
+    const body = result.body || '';
+    const message = result.message || '';
+    
+    console.log("🔍 [DEBUG] Extracted data:", {
+      subject_length: subject?.length || 0,
+      body_length: body?.length || 0,
+      has_message: !!message
+    });
+    
+    // 记录message字段到控制台
+    if (message) {
+      console.log("Backend message:", message);
+    }
+    
+    // 更新全局邮件数据
+    window.generatedEmailData = {
+      subject: subject,
+      body: body
+    };
+    
+    console.log("🔍 [DEBUG] Updated global email data:", window.generatedEmailData);
+    
+    // 更新显示的邮件内容
+    const responseBox = document.querySelector(".placeholder");
+    const newContent = `📧 Updated Email\n\nSubject: ${subject}\n\n${body}`;
+    console.log("🔍 [DEBUG] Setting responseBox content:", newContent);
+    responseBox.innerText = newContent;
+    
+    // 确保发送按钮可见
+    const sendEmailBtn = document.getElementById("send-email-from-file-btn");
+    if (sendEmailBtn) {
+      sendEmailBtn.style.display = 'inline-block';
+    }
+
+    // 替换占位消息为成功消息 - 修复后的代码
+    const aiBubbles = document.querySelectorAll(".bubble.ai");
+    const lastAiBubble = aiBubbles[aiBubbles.length - 1];
+    if (lastAiBubble) {
+      lastAiBubble.innerText = "✅ Email updated! The updated email is shown above.";
+    }
+    
+  } catch (err) {
+    console.error("❌ Email modification error:", err);
+    // 修复后的错误处理代码
+    const aiBubbles = document.querySelectorAll(".bubble.ai");
+    const lastAiBubble = aiBubbles[aiBubbles.length - 1];
+    if (lastAiBubble) {
+      lastAiBubble.innerText = `❌ Failed to modify email: ${err.message}`;
     }
   }
 });
 
-// 生成邮件文本按钮点击事件
+// ============================
+// 邮件生成和修改功能
+// ============================
 document.getElementById("generate-btn").addEventListener("click", async () => {
   const userInput = document.getElementById("user-input").value;
   const responseBox = document.querySelector(".placeholder");
   const sendEmailBtn = document.getElementById("send-email-from-file-btn");
 
-
   responseBox.innerText = "⏳ Generating email... Please wait.";
 
   try {
+    // 前端总是发送所有字段，第一次生成时current_subject、current_body、user_prompt为空
     const payload = {
-      job_description: currentJobDescription,     // JD：从页面抓取的
+      job_description: currentJobDescription,
       resume: resumeContent,
-      user_prompt: userInput                      // 用户提问
+      current_subject: window.generatedEmailData?.subject || "",
+      current_body: window.generatedEmailData?.body || "",
+      user_prompt: userInput || ""
     };
 
-    const res = await fetch("http://localhost:5000/generate_email", {
+    const res = await fetch("http://localhost:5000/generate_and_modify_email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -279,23 +284,25 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
     }
 
     const result = await res.json();
-    // 判断 generated_email 是否为对象，优先显示 subject 和 body
-    if (result.generated_email && typeof result.generated_email === 'object') {
-      const subject = result.generated_email.subject || '';
-      const body = result.generated_email.body || '';
-      responseBox.innerText = `📧 Generated Email\n\nSubject: ${subject}\n\n${body}`;
-
-      // 保存结构化的邮件数据到全局变量，供发送时使用
-      window.generatedEmailData = {
-        subject: subject,
-        body: body
-      };
-    } else {
-      responseBox.innerText = `📧 Generated Email:\n\n${result.generated_email || "(No content returned)"}`;
-      window.generatedEmailData = null;
+    
+    // 处理后端统一返回格式：{subject: "...", body: "...", message?: "..."
+    const subject = result.subject || '';
+    const body = result.body || '';
+    const message = result.message || '';
+    
+    // 记录message字段到控制台
+    if (message) {
+      console.log("Backend message:", message);
     }
-
-    // 显示发送按钮
+    
+    // 更新全局邮件数据
+    window.generatedEmailData = {
+      subject: subject,
+      body: body
+    };
+    
+    // 显示邮件内容
+    responseBox.innerText = `📧 Generated Email\n\nSubject: ${subject}\n\n${body}`;
     sendEmailBtn.style.display = 'inline-block';
 
   } catch (err) {
@@ -304,10 +311,10 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
   }
 });
 
-// 现在使用Google OAuth认证
-// 发送邮件按钮点击事件
+// ============================
+// 邮件发送功能
+// ============================
 document.getElementById("send-email-from-file-btn").addEventListener("click", async () => {
-  alert('Attempting to send email using data from email_content.json...');
   const responseBox = document.querySelector(".placeholder");
 
   // 检查是否有生成的邮件数据
@@ -329,18 +336,17 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
 
     responseBox.innerText = "📧 正在发送邮件...";
 
-    // 调用后端API，传递token和结构化的邮件数据
-    const res = await fetch("http://localhost:5000/send-email-from-file", {
+    // 调用后端API，使用正确的端点 /send-email
+    const res = await fetch("http://localhost:5000/send-email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-From-Extension": "true"
       },
       body: JSON.stringify({
-        emailData: {
-          subject: window.generatedEmailData.subject,
-          body: window.generatedEmailData.body
-        },
+        subject: window.generatedEmailData.subject,
+        body: window.generatedEmailData.body,
+        to: "recruiter@company.com", // TODO: 从招聘者查找API获取
         access_token: accessToken
       }),
     });
@@ -354,7 +360,7 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
     if (result.success) {
       responseBox.innerText = "✅ Email sent successfully with Google OAuth!";
     } else {
-      responseBox.innerText = `❌ Failed to send email: ${result.error || 'Unknown error'}`;
+      responseBox.innerText = `❌ Failed to send email: ${result.message || 'Unknown error'}`;
       console.error("[ERROR] Email sending failed:", result.error);
     }
 
@@ -369,21 +375,3 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
     }
   }
 });
-
-
-// TODO: 聊天记录
-let chatHistory = [];
-
-function addMessageToChat(content, sender = "ai") {
-  const chatBox = document.getElementById("chat-box");
-  const bubble = document.createElement("div");
-  bubble.className = `bubble ${sender}`; // user 或 ai
-  bubble.innerText = content;
-  chatBox.appendChild(bubble);
-  chatBox.scrollTop = chatBox.scrollHeight; // 滚动到底部
-}
-
-function addMessage(content, sender) {
-  chatHistory.push({ sender, content });
-  addMessageToChat(content, sender);
-}

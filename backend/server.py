@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from mcp.types import TextContent
-from generate_followup_email import generate_email, modify_email, extract_company_name_from_jd, extract_job_title_from_jd, extract_email_from_jd
+from generate_followup_email import generate_email, modify_email
 from web_search_agent import find_recruiter_email_via_web_search, setup_aurite_for_recruiter_search
 from email_handling import send_email_via_google_api
 from aurite_service import get_aurite
@@ -53,23 +53,49 @@ async def handle_generate_and_modify_email():
         aurite = get_aurite()
         await aurite.initialize()
 
+        # 获取所有字段，前端总是发送所有字段
         current_subject = payload.get('current_subject')
         current_body = payload.get('current_body')
-        user_feedback = payload.get('user_feedback')
+        user_prompt = payload.get('user_prompt')  # 改为user_prompt
+        job_description = payload.get('job_description')
+        resume = payload.get('resume')
 
-        if current_subject and current_body and user_feedback:
+        logging.info(f"[DEBUG] Payload analysis:")
+        logging.info(f"  current_subject: '{current_subject}' (length: {len(current_subject) if current_subject else 0})")
+        logging.info(f"  current_body: '{current_body[:100] if current_body else 'None'}...' (length: {len(current_body) if current_body else 0})")
+        logging.info(f"  user_prompt: '{user_prompt}' (length: {len(user_prompt) if user_prompt else 0})")
+        logging.info(f"  job_description: length {len(job_description) if job_description else 0}")
+        logging.info(f"  resume: length {len(resume) if resume else 0}")
+
+        # 检查是否为修改请求（三个字段都不为空）
+        if current_subject and current_body and user_prompt:
             # This is an email modification request
             logging.info("Attempting to modify existing email.")
-            revised_email = await modify_email(current_subject, current_body, user_feedback)
-            return jsonify({
-                "subject": revised_email.get("subject", ""),
-                "body": revised_email.get("body", "")
-            }), 200
+            revised_email = await modify_email(resume, job_description, current_subject, current_body, user_prompt)
+            
+            logging.info(f"[DEBUG] modify_email result: {revised_email}")
+            
+            # 检查modify_email的返回格式
+            if isinstance(revised_email, dict) and revised_email.get("status") == "success":
+                # 从嵌套的数据结构中提取邮件内容
+                email_data = revised_email.get("data", {}).get("email", {})
+                logging.info(f"[DEBUG] Extracted email data: {email_data}")
+                
+                # 统一返回格式，包含message字段
+                return jsonify({
+                    "subject": email_data.get("subject", ""),
+                    "body": email_data.get("body", ""),
+                    "message": revised_email.get("message", "")
+                }), 200
+            elif isinstance(revised_email, dict) and revised_email.get("status") == "fail":
+                error_message = revised_email.get("message", "Unknown error occurred")
+                logging.error(f"Error from modify_email: {error_message}")
+                return jsonify({"error": error_message}), 500
+            else:
+                logging.error(f"Unexpected output from modify_email: {revised_email}")
+                return jsonify({"error": "An unexpected error occurred during email modification."}), 500
         else:
             # This is an initial email generation request
-            job_description = payload.get('job_description')
-            resume = payload.get('resume')
-
             if not all([job_description, resume]):
                 logging.error("Missing required fields (job_description, resume) for initial generation.")
                 return jsonify({"error": "Missing required fields for initial email generation."}), 400
@@ -77,25 +103,24 @@ async def handle_generate_and_modify_email():
             logging.info("Attempting to generate initial email.")
             generation_result = await generate_email(resume, job_description)
 
-            if generation_result["status"] == "email_generated":
+            # 使用status字段判断
+            if isinstance(generation_result, dict) and generation_result.get("status") == "success":
+                # 从嵌套的数据结构中提取邮件内容
+                email_data = generation_result.get("data", {}).get("email", {})
                 logging.info("Email generated successfully.")
-                generated_email = generation_result["email"]
+                
+                # 统一返回格式，包含message字段
                 return jsonify({
-                    "subject": generated_email.get("subject", ""),
-                    "body": generated_email.get("body", "")
+                    "subject": email_data.get("subject", ""),
+                    "body": email_data.get("body", ""),
+                    "message": generation_result.get("message", "")  # 即使成功也返回message
                 }), 200
-            elif generation_result["status"] == "needs_web_search":
-                logging.info("Recipient email not found in JD, web search is needed. Returning partial email for now.")
-                # If web search is needed, we still return the generated email (if any)
-                # and let the frontend decide to call /find_recruiter_email
-                generated_email = generation_result.get("email", {"subject": "", "body": ""})
-                return jsonify({
-                    "subject": generated_email.get("subject", ""),
-                    "body": generated_email.get("body", ""),
-                    "message": "Recipient email not found in JD. Please call /find_recruiter_email to search for contact information."
-                }), 200 # Return 200 even if web search is needed, as email generation was successful to some extent
+            elif isinstance(generation_result, dict) and generation_result.get("status") == "fail":
+                error_message = generation_result.get("message", "Unknown error occurred")
+                logging.error(f"Error from generate_email: {error_message}")
+                return jsonify({"error": error_message}), 500
             else:
-                logging.error(f"Unexpected status from generate_email: {generation_result['status']}")
+                logging.error(f"Unexpected output from generate_email: {generation_result}")
                 return jsonify({"error": "An unexpected error occurred during email generation."}), 500
 
     except Exception as e:
@@ -168,6 +193,20 @@ async def handle_find_recruiter_email():
                 "result": found_email_from_web # Return the found email
             }), 200
         else:
+             # TODO: 前端需要特殊处理这个返回结果！
+            # 当 status="Fail" 时，result 可能是：
+            # 1. 字符串（错误信息）
+            # 2. 数组（URL对象列表，格式：[{"url": "...", "title": "..."}]）
+            # 前端必须检查 Array.isArray(data.result) 来区分类型
+            # 如果直接当字符串使用会显示 "[object Object],[object Object]"
+            # 建议前端代码：
+            # if (Array.isArray(data.result)) {
+            #     // 处理URL数组，创建可点击链接
+            #     data.result.forEach(item => console.log(item.title, item.url));
+            # } else {
+            #     // 处理错误信息字符串
+            #     console.error(data.result);
+            # }
             return jsonify({
                 "status": "Fail",
                 "result": relevant_urls_from_web # Return relevant URLs if no email found
@@ -180,40 +219,75 @@ async def handle_find_recruiter_email():
     
 def validate_request():
     """
-    验证发邮件请求的基本格式和权限，并整合access_token到邮件数据中
+    验证发邮件请求的基本格式和权限，验证扁平化的邮件数据结构
+    前端发送格式: {subject: "...", body: "...", to: "...", access_token: "..."}
     Returns: (is_valid, error_response, email_data_with_token)
     """
+    logging.info("[validate_request] Starting email request validation")
+    
     # 验证扩展头
     if request.headers.get('X-From-Extension') != 'true':
-        logging.warning("Request missing 'X-From-Extension: true' header.")
+        logging.warning("[validate_request] Request missing 'X-From-Extension: true' header.")
         return False, (jsonify({'error': 'Forbidden'}), 403), None
+    
+    logging.info("[validate_request] Extension header validation passed")
     
     # 验证邮件格式是否是JSON数据
     try:
         data = request.get_json(force=True)
         if not data:
-            logging.error("Request body is empty or not valid JSON.")
+            logging.error("[validate_request] Request body is empty or not valid JSON.")
             return False, (jsonify({'error': 'Invalid JSON in request body.'}), 400), None
+        
+        logging.info(f"[validate_request] Received data structure: {data}")
+        logging.info(f"[validate_request] Data keys: {list(data.keys())}")
+        
     except Exception as e:
-        logging.error(f"JSON parsing error: {e}")
+        logging.error(f"[validate_request] JSON parsing error: {e}")
         return False, (jsonify({'error': 'Invalid JSON in request body.'}), 400), None
     
     # 验证是否有用户邮箱的access_token
     access_token = data.get('access_token')
     if not access_token:
-        logging.error("Missing required access_token in request.")
+        logging.error("[validate_request] Missing required access_token in request.")
         return False, (jsonify({'error': 'Missing required access_token'}), 400), None
     
-    # 验证邮件内容
-    email_data = data.get('emailData', {})
-    if not email_data or not email_data.get('subject') or not email_data.get('body'):
-        logging.error(f"Invalid email data structure: {email_data}")
-        return False, (jsonify({'error': 'Invalid email data. Please generate a proper email first.'}), 400), None
+    logging.info(f"[validate_request] Found access_token: {access_token[:20]}...")
     
-    # 创建包含access_token的完整邮件数据字典
-    email_data_with_token = data.copy()
-    # 确保access_token在邮件数据中（如果原来就有则保持，如果没有则添加）
-    email_data_with_token['access_token'] = access_token
+    # 验证邮件内容 - 扁平化结构
+    subject = data.get('subject')
+    body = data.get('body')
+    to = data.get('to')
+    
+    logging.info(f"[validate_request] Email fields validation:")
+    logging.info(f"  - subject: '{subject}' (length: {len(subject) if subject else 0})")
+    logging.info(f"  - body: '{body[:100] if body else 'None'}...' (length: {len(body) if body else 0})")
+    logging.info(f"  - to: '{to}'")
+    
+    # 检查必填字段
+    missing_fields = []
+    if not subject:
+        missing_fields.append('subject')
+    if not body:
+        missing_fields.append('body')
+    if not to:
+        missing_fields.append('to')
+    
+    if missing_fields:
+        logging.error(f"[validate_request] Missing required fields: {missing_fields}")
+        return False, (jsonify({'error': f"Missing required fields: {', '.join(missing_fields)}"}), 400), None
+    
+    
+    # 创建包含所有必要字段的邮件数据字典
+    email_data_with_token = {
+        'subject': subject,
+        'body': body,
+        'to': to,
+        'access_token': access_token
+    }
+    
+    logging.info(f"[validate_request] Validation successful, returning email data")
+    logging.info(f"[validate_request] Final email data structure: subject='{subject}', body_length={len(body)}, to='{to}', has_token={bool(access_token)}")
     
     return True, None, email_data_with_token
 
@@ -259,70 +333,70 @@ async def handle_send_email():
         return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
 
 # send email from a JSON file for now, because we don't have the receiver's email, future will get it from frontend
-@app.route('/send-email-from-file', methods=['POST']) 
-async def send_email_from_file():
-    logging.info(f'Received request to send email from file from {request.remote_addr}')
+# @app.route('/send-email-from-file', methods=['POST']) 
+# async def send_email_from_file():
+#     logging.info(f'Received request to send email from file from {request.remote_addr}')
     
-    # 使用统一的验证函数，现在返回整合了access_token的邮件数据
-    is_valid, error_response, email_content_data_with_token = validate_request()
-    if not is_valid:
-        return error_response
+#     # 使用统一的验证函数，现在返回整合了access_token的邮件数据
+#     is_valid, error_response, email_content_data_with_token = validate_request()
+#     if not is_valid:
+#         return error_response
 
-    try:
-        logging.info(f'Parsed email data with token: {email_content_data_with_token}')
+#     try:
+#         logging.info(f'Parsed email data with token: {email_content_data_with_token}')
 
-        email_file_name = 'email_content.json'
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(current_dir, email_file_name)
+#         email_file_name = 'email_content.json'
+#         current_dir = os.path.dirname(os.path.abspath(__file__))
+#         file_path = os.path.join(current_dir, email_file_name)
 
-        if not os.path.exists(file_path):
-            logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
-            return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
+#         if not os.path.exists(file_path):
+#             logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
+#             return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
 
-        with open(file_path, 'r', encoding='utf-8') as f:
-            email_data_from_file = json.load(f)
+#         with open(file_path, 'r', encoding='utf-8') as f:
+#             email_data_from_file = json.load(f)
 
-        logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data_with_token}")
+#         logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data_with_token}")
         
-        # 整合文件数据、前端数据和access_token
-        if isinstance(email_data_from_file, dict):
-            # 从文件获取基础邮件结构
-            final_email_data = email_data_from_file.copy()
-            # 用前端传来的邮件数据更新主题和正文
-            if "emailData" in email_content_data_with_token:
-                email_data = email_content_data_with_token["emailData"]
-                final_email_data["subject"] = email_data.get("subject", "")
-                final_email_data["body"] = email_data.get("body", "")
-            # 确保包含access_token
-            final_email_data["access_token"] = email_content_data_with_token["access_token"]
-        else:
-            final_email_data = email_content_data_with_token
+#         # 整合文件数据、前端数据和access_token
+#         if isinstance(email_data_from_file, dict):
+#             # 从文件获取基础邮件结构
+#             final_email_data = email_data_from_file.copy()
+#             # 用前端传来的邮件数据更新主题和正文
+#             if "emailData" in email_content_data_with_token:
+#                 email_data = email_content_data_with_token["emailData"]
+#                 final_email_data["subject"] = email_data.get("subject", "")
+#                 final_email_data["body"] = email_data.get("body", "")
+#             # 确保包含access_token
+#             final_email_data["access_token"] = email_content_data_with_token["access_token"]
+#         else:
+#             final_email_data = email_content_data_with_token
 
-        # 使用OAuth方式发送邮件
-        if 'access_token' in final_email_data:
-            logging.info(f'Processing file email with access_token: {final_email_data["access_token"][:20]}...')
-        success, mcp_response = await send_email_via_google_api(final_email_data)
+#         # 使用OAuth方式发送邮件
+#         if 'access_token' in final_email_data:
+#             logging.info(f'Processing file email with access_token: {final_email_data["access_token"][:20]}...')
+#         success, mcp_response = await send_email_via_google_api(final_email_data)
 
-        # Handle CallToolResult object for JSON serialization (this part remains in server.py)
-        json_serializable_mcp_response = None
-        if hasattr(mcp_response, 'content') and hasattr(mcp_response.content, '__getitem__') and isinstance(mcp_response.content[0], TextContent):
-            json_serializable_mcp_response = mcp_response.content[0].text
-        elif hasattr(mcp_response, 'isError') and mcp_response.isError: # Check if it's an error result object
-             json_serializable_mcp_response = str(mcp_response.content) # Convert error content to string
-        else: # Fallback if it's not a CallToolResult or has unexpected content, or is already a string
-            json_serializable_mcp_response = str(mcp_response)
+#         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
+#         json_serializable_mcp_response = None
+#         if hasattr(mcp_response, 'content') and hasattr(mcp_response.content, '__getitem__') and isinstance(mcp_response.content[0], TextContent):
+#             json_serializable_mcp_response = mcp_response.content[0].text
+#         elif hasattr(mcp_response, 'isError') and mcp_response.isError: # Check if it's an error result object
+#              json_serializable_mcp_response = str(mcp_response.content) # Convert error content to string
+#         else: # Fallback if it's not a CallToolResult or has unexpected content, or is already a string
+#             json_serializable_mcp_response = str(mcp_response)
 
-        if success:
-            return jsonify({"success": True, "message": "Email sent successfully from file data with OAuth", "mcp_response": json_serializable_mcp_response}), 200
-        else:
-            return jsonify({"success": False, "message": "Failed to send email from file data via OAuth", "error": json_serializable_mcp_response}), 500
+#         if success:
+#             return jsonify({"success": True, "message": "Email sent successfully from file data with OAuth", "mcp_response": json_serializable_mcp_response}), 200
+#         else:
+#             return jsonify({"success": False, "message": "Failed to send email from file data via OAuth", "error": json_serializable_mcp_response}), 500
 
-    except json.JSONDecodeError as e:
-        logging.error(f"Error decoding JSON from '{email_file_name}': {e}", exc_info=True)
-        return jsonify({"success": False, "message": f"Error: Invalid JSON format in '{email_file_name}'."}), 400
-    except Exception as e:
-        logging.error(f"Error processing request to send email from file: {e}", exc_info=True)
-        return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
+#     except json.JSONDecodeError as e:
+#         logging.error(f"Error decoding JSON from '{email_file_name}': {e}", exc_info=True)
+#         return jsonify({"success": False, "message": f"Error: Invalid JSON format in '{email_file_name}'."}), 400
+#     except Exception as e:
+#         logging.error(f"Error processing request to send email from file: {e}", exc_info=True)
+#         return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
 
 
 @app.route('/', methods=['GET'])
