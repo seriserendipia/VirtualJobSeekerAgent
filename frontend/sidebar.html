@@ -32,6 +32,27 @@
       background-color: #e2e3e5;
       text-align: left;
     }
+    .small-text {
+      font-size: 12px;
+      color: gray;
+      margin-top: 4px;
+    }
+    .action-row {
+      margin: 10px 0;
+    }
+    .custom-file-upload {
+      background-color: #007bff;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #send-email-from-file-btn, #generate-btn, #send-chat-btn, #clear-chat-btn, #get-recipient-btn {
+      margin-top: 10px;
+    }
+    input[readonly] {
+      background-color: #f2f2f2;
+    }
   </style>
 </head>
 <body>
@@ -53,29 +74,35 @@
     <h3>📄 Job Description Preview</h3>
     <div id="jd-preview" class="preview-box">No JD loaded</div>
 
-    <!-- ✅ Resume 上传 & 生成邮件按钮 -->
+    <!-- ✅ 简历上传 + 生成按钮 -->
     <div class="action-row">
       <label for="resume-upload" class="custom-file-upload">📄 Upload Resume</label>
-      <input type="file" id="resume-upload" accept=".txt,.pdf,.doc,.docx" />
-      <p id="resume-status" class="small-text">📎 No resume uploaded</p>
+      <input type="file" id="resume-upload" accept=".txt,.pdf" />
+      <p id="resume-status" class="small-text">📎 No resume uploaded</p >
 
       <button id="generate-btn">🚀 Generate Email</button>
     </div>
 
-    <!-- ✅ 邮件生成结果显示区 -->
+    <!-- ✅ 邮件内容显示区 -->
     <div class="placeholder">Generated email will appear here.</div>
 
-    <!-- ✅ 聊天区 (移到下面) -->
+    <!-- ✅ 聊天区 -->
     <h3>💬 Modify Email</h3>
     <div id="chat-box" class="chat-box"></div>
     <textarea id="user-input" placeholder="Type your modification request here..."></textarea>
     <button id="send-chat-btn">Modify Email</button>
-    
-    <!-- 发送邮件按钮移到最底部 -->
-    <button id="send-email-from-file-btn" style="display:none;">📧 Send Email</button>
+    <button id="clear-chat-btn">Clear Chat</button>
+
+    <!-- ✅ 获取收件人邮箱 -->
+    <h3>📥 Get Recipient Email</h3>
+    <button id="get-recipient-btn">📧 Get Recipient Email</button>
+    <p id="recipient-status" class="small-text">Recipient email not fetched yet.</p >
+    <input type="text" id="recipient-email" placeholder="Enter email if not found" />
+
+    <!-- ✅ 发送邮件按钮 -->
+    <button id="send-email-from-file-btn" style="display:none;">📨 Send Email</button>
   </div>
 
   <script src="sidebar.js"></script>
 </body>
 </html>
-
