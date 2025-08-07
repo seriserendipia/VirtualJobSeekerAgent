@@ -131,6 +131,16 @@ function addMessage(content, sender) {
   addMessageToChat(content, sender);
 }
 
+// ============================
+// 清空聊天记录功能
+// ============================
+document.getElementById("clear-chat-btn").addEventListener("click", () => {
+  const chatBox = document.getElementById("chat-box");
+  chatHistory = []; // 清空聊天历史数组
+  chatBox.innerHTML = ""; // 清空聊天显示区域
+  console.log("✅ Chat history cleared");
+});
+
 document.getElementById("send-chat-btn").addEventListener("click", async () => {
   const userInput = document.getElementById("user-input");
   const text = userInput.value.trim();
@@ -311,21 +321,37 @@ document.getElementById("get-recipient-btn").addEventListener("click", async () 
   status.innerText = "🔍 Looking for recruiter email...";
 
   try {
-    const res = await fetch("http://localhost:5000/get_recipient_email", {
+    const res = await fetch("http://localhost:5000/find_recruiter_email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-From-Extension": "true"
       },
-      body: JSON.stringify({ company: companyName, title: jobTitle })
+      body: JSON.stringify({ 
+        company_name: companyName, 
+        job_title: jobTitle,
+        job_description: currentJobDescription
+      })
     });
 
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const result = await res.json();
 
-    if (result.email) {
-      emailInput.value = result.email;
+    if (result.status === "Success") {
+      // 找到邮箱地址
+      emailInput.value = result.result;
       status.innerText = "✅ Email found and filled.";
+    } else if (result.status === "Fail") {
+      // 检查result是否为URL数组
+      if (Array.isArray(result.result)) {
+        // 显示找到的相关URLs
+        status.innerHTML = "⚠️ No email found, but found relevant URLs:<br>" + 
+          result.result.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+      } else {
+        // 显示错误信息
+        status.innerText = `⚠️ ${result.result}`;
+      }
+      emailInput.placeholder = "Enter recipient email manually";
     } else {
       status.innerText = "⚠️ No email found. You can manually enter it below.";
       emailInput.placeholder = "Enter recipient email manually";

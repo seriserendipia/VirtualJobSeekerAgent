@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import traceback
+import re
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -158,8 +159,11 @@ async def handle_find_recruiter_email():
         # --- NEW LOGIC: Prioritize extracting email from job_description ---
         found_email_in_jd = None
         if job_description:
-            found_email_in_jd = extract_email_from_jd(job_description)
-            if found_email_in_jd:
+            # 简单的邮箱正则提取
+            email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+            email_matches = re.findall(email_pattern, job_description)
+            if email_matches:
+                found_email_in_jd = email_matches[0]  # 取第一个找到的邮箱
                 logging.info(f"Found email in job description: {found_email_in_jd}. Skipping web search.")
                 return jsonify({
                     "status": "Success",
@@ -169,12 +173,8 @@ async def handle_find_recruiter_email():
 
         # If only job_description is provided (and no email was found in it), try to extract company and job title from it
         if job_description and not (company_name and job_title):
-            company_name = extract_company_name_from_jd(job_description)
-            job_title = extract_job_title_from_jd(job_description)
-            if not company_name:
-                logging.warning("Could not extract company name from JD for web search.")
-                # Changed to "status" and "result"
-                return jsonify({"status": "Fail", "result": "Could not extract company name from job description for web search."}), 400
+            logging.warning("Company name and job title not provided, and automatic extraction from JD is not implemented.")
+            return jsonify({"status": "Fail", "result": "Company name and job title are required when not provided in the request."}), 400
 
         # Get and initialize Aurite instance for each request
         aurite = get_aurite()
@@ -331,72 +331,6 @@ async def handle_send_email():
         logging.error(f'Failed to process send-email request: {e}')
         logging.error(f'Exception traceback: {traceback.format_exc()}')
         return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
-
-# send email from a JSON file for now, because we don't have the receiver's email, future will get it from frontend
-# @app.route('/send-email-from-file', methods=['POST']) 
-# async def send_email_from_file():
-#     logging.info(f'Received request to send email from file from {request.remote_addr}')
-    
-#     # 使用统一的验证函数，现在返回整合了access_token的邮件数据
-#     is_valid, error_response, email_content_data_with_token = validate_request()
-#     if not is_valid:
-#         return error_response
-
-#     try:
-#         logging.info(f'Parsed email data with token: {email_content_data_with_token}')
-
-#         email_file_name = 'email_content.json'
-#         current_dir = os.path.dirname(os.path.abspath(__file__))
-#         file_path = os.path.join(current_dir, email_file_name)
-
-#         if not os.path.exists(file_path):
-#             logging.error(f"Email content file '{email_file_name}' not found at: {file_path}")
-#             return jsonify({"message": f"Error: '{email_file_name}' not found."}), 404
-
-#         with open(file_path, 'r', encoding='utf-8') as f:
-#             email_data_from_file = json.load(f)
-
-#         logging.info(f"Loaded email data from file: {email_data_from_file}， content from frontend: {email_content_data_with_token}")
-        
-#         # 整合文件数据、前端数据和access_token
-#         if isinstance(email_data_from_file, dict):
-#             # 从文件获取基础邮件结构
-#             final_email_data = email_data_from_file.copy()
-#             # 用前端传来的邮件数据更新主题和正文
-#             if "emailData" in email_content_data_with_token:
-#                 email_data = email_content_data_with_token["emailData"]
-#                 final_email_data["subject"] = email_data.get("subject", "")
-#                 final_email_data["body"] = email_data.get("body", "")
-#             # 确保包含access_token
-#             final_email_data["access_token"] = email_content_data_with_token["access_token"]
-#         else:
-#             final_email_data = email_content_data_with_token
-
-#         # 使用OAuth方式发送邮件
-#         if 'access_token' in final_email_data:
-#             logging.info(f'Processing file email with access_token: {final_email_data["access_token"][:20]}...')
-#         success, mcp_response = await send_email_via_google_api(final_email_data)
-
-#         # Handle CallToolResult object for JSON serialization (this part remains in server.py)
-#         json_serializable_mcp_response = None
-#         if hasattr(mcp_response, 'content') and hasattr(mcp_response.content, '__getitem__') and isinstance(mcp_response.content[0], TextContent):
-#             json_serializable_mcp_response = mcp_response.content[0].text
-#         elif hasattr(mcp_response, 'isError') and mcp_response.isError: # Check if it's an error result object
-#              json_serializable_mcp_response = str(mcp_response.content) # Convert error content to string
-#         else: # Fallback if it's not a CallToolResult or has unexpected content, or is already a string
-#             json_serializable_mcp_response = str(mcp_response)
-
-#         if success:
-#             return jsonify({"success": True, "message": "Email sent successfully from file data with OAuth", "mcp_response": json_serializable_mcp_response}), 200
-#         else:
-#             return jsonify({"success": False, "message": "Failed to send email from file data via OAuth", "error": json_serializable_mcp_response}), 500
-
-#     except json.JSONDecodeError as e:
-#         logging.error(f"Error decoding JSON from '{email_file_name}': {e}", exc_info=True)
-#         return jsonify({"success": False, "message": f"Error: Invalid JSON format in '{email_file_name}'."}), 400
-#     except Exception as e:
-#         logging.error(f"Error processing request to send email from file: {e}", exc_info=True)
-#         return jsonify({"success": False, "message": "Internal Server Error", "error": str(e)}), 500
 
 
 @app.route('/', methods=['GET'])
