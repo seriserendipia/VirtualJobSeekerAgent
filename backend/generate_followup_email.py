@@ -17,7 +17,7 @@ def parse_email_to_json(raw_content: str) -> dict:
 
 
 
-# 定义 LLM（只需配置）
+# Define LLM (configuration only)
 fast_llm = LLMConfig(
     llm_id="fast_gpt",
     provider="openai",
@@ -92,7 +92,7 @@ async def generate_email(resume_content: str, jd_content: str) -> dict:
 
     
     
-# Step2: 新增一个 AgentConfig 用于邮件修改，或者考虑在 modify_email 内部动态创建
+# Step2: Add a new AgentConfig for email modification, or consider dynamic creation within modify_email.
 # Define a new AgentConfig for email modification, or consider dynamic creation within modify_email.
 # For clarity, we define a new AgentConfig here.
 email_modifier_agent_config = AgentConfig(

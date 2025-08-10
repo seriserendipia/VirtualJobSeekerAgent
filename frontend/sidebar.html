@@ -62,7 +62,7 @@
   <div id="container">
     <h2>🎯 Job AI Assistant</h2>
 
-    <!-- ✅ 公司 & 岗位信息 -->
+    <!-- ✅ Company & Job Information -->
     <div class="info-box">
       <label>🏢 Company:</label>
       <input type="text" id="company-name" readonly />
@@ -73,11 +73,11 @@
       <input type="text" id="job-title" readonly />
     </div>
 
-    <!-- ✅ JD 预览区 -->
+    <!-- ✅ JD Preview Area -->
     <h3>📄 Job Description Preview</h3>
     <div id="jd-preview" class="preview-box">No JD loaded</div>
 
-    <!-- ✅ 简历上传 + 生成按钮 -->
+    <!-- ✅ Resume Upload + Generate Button -->
     <div class="action-row">
       <label for="resume-upload" class="custom-file-upload">📄 Upload Resume</label>
       <input type="file" id="resume-upload" accept=".txt,.pdf" />
@@ -86,23 +86,23 @@
       <button id="generate-btn">🚀 Generate Email</button>
     </div>
 
-    <!-- ✅ 邮件内容显示区 -->
+    <!-- ✅ Email Content Display Area -->
     <div class="placeholder">Generated email will appear here.</div>
 
-    <!-- ✅ 聊天区 -->
+    <!-- ✅ Chat Area -->
     <h3>💬 Modify Email</h3>
     <div id="chat-box" class="chat-box"></div>
     <textarea id="user-input" placeholder="Type your modification request here..."></textarea>
     <button id="send-chat-btn">Modify Email</button>
     <button id="clear-chat-btn">Clear Chat</button>
 
-    <!-- ✅ 获取收件人邮箱 -->
+    <!-- ✅ Get Recipient Email -->
     <h3>📥 Get Recipient Email</h3>
     <button id="get-recipient-btn">📧 Get Recipient Email</button>
     <p id="recipient-status" class="small-text">Recipient email not fetched yet.</p >
     <input type="text" id="recipient-email" placeholder="Enter email if not found" />
 
-    <!-- ✅ 发送邮件按钮 -->
+    <!-- ✅ Send Email Button -->
     <button id="send-email-from-file-btn" style="display:none;">📨 Send Email</button>
   </div>
 

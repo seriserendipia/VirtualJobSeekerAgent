@@ -1,17 +1,17 @@
 @echo off
-echo 正在构建 manifest.json...
+echo Building manifest.json...
 python build_manifest.py
 
 if %ERRORLEVEL% EQU 0 (
     echo.
-    echo ✅ 构建完成！现在可以加载 Chrome 扩展了
+    echo ✅ Build completed! You can now load the Chrome extension
     echo.
-    echo 📁 扩展目录: %~dp0frontend
+    echo 📁 Extension directory: %~dp0frontend
     echo.
-    echo 🔧 如需修改配置，请编辑 .env 文件
+    echo 🔧 To modify configuration, edit the .env file
 ) else (
     echo.
-    echo ❌ 构建失败，请检查配置
+    echo ❌ Build failed, please check configuration
 )
 
 pause

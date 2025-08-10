@@ -1,4 +1,4 @@
-// === 创建 sidebar iframe ===
+// === Create sidebar iframe ===
 const iframe = document.createElement("iframe");
 iframe.src = chrome.runtime.getURL("sidebar.html");
 iframe.style.position = "fixed";
@@ -11,7 +11,7 @@ iframe.style.zIndex = "9999";
 iframe.style.boxShadow = "0 0 10px rgba(0,0,0,0.3)";
 document.body.appendChild(iframe);
 
-// === 提取 Job Description ===
+// === Extract Job Description ===
 function extractAndSendJobDescription() {
   let jdElement = document.querySelector("#job-details") || document.querySelector(".jobs-box__html-content");
 
@@ -27,13 +27,13 @@ function extractAndSendJobDescription() {
   }
 }
 
-// === 新增：提取公司名 & 岗位名 ===
+// === Added: Extract Company Name & Job Title ===
 function extractAndSendJobInfo() {
-  // ✅ 获取职位名称
+  // ✅ Get job title
   const titleEl = document.querySelector(".job-details-jobs-unified-top-card__job-title h1 a");
   const jobTitle = titleEl ? titleEl.innerText.trim() : "";
 
-  // ✅ 获取公司名称
+  // ✅ Get company name
   const companyEl = document.querySelector(".job-details-jobs-unified-top-card__company-name a");
   const companyName = companyEl ? companyEl.innerText.trim() : "";
 
@@ -46,7 +46,7 @@ function extractAndSendJobInfo() {
   console.log("✅ Job info sent:", { companyName, jobTitle });
 }
 
-// === 监听 LinkedIn 页面变化 ===
+// === Listen to LinkedIn page changes ===
 const observer = new MutationObserver(() => {
   extractAndSendJobDescription();
   extractAndSendJobInfo();
@@ -57,7 +57,7 @@ observer.observe(document.body, {
   subtree: true,
 });
 
-// === 初始加载时触发一次（保险） ===
+// === Trigger once on initial load (as backup) ===
 setTimeout(() => {
   extractAndSendJobDescription();
   extractAndSendJobInfo();

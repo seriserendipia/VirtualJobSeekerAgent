@@ -7,7 +7,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# 配置日志记录
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s] [EmailService] %(message)s'
@@ -17,19 +17,19 @@ logger = logging.getLogger(__name__)
 
 def create_gmail_service(access_token):
     """
-    使用访问令牌创建Gmail API服务对象
+    Create Gmail API service object using access token
     
     Args:
-        access_token: Google OAuth 2.0 访问令牌
+        access_token: Google OAuth 2.0 access token
         
     Returns:
-        gmail service对象
+        gmail service object
     """
     try:
-        # 创建凭据对象
+        # Create credentials object
         creds = Credentials(token=access_token)
         
-        # 构建Gmail服务
+        # Build Gmail service
         service = build('gmail', 'v1', credentials=creds)
         logger.info("Gmail service created successfully")
         return service
@@ -41,24 +41,24 @@ def create_gmail_service(access_token):
 
 def create_message(to, subject, body):
     """
-    创建邮件消息
+    Create email message
     
     Args:
-        to: 收件人邮箱
-        subject: 邮件主题
-        body: 邮件内容（纯文本）
+        to: Recipient email address
+        subject: Email subject
+        body: Email content (plain text)
         
     Returns:
-        base64编码的邮件消息
+        base64 encoded email message
     """
     try:
-        # 构建原始邮件字符串
+        # Build raw email string
         message = f"To: {to}\r\n"
         message += f"Subject: {subject}\r\n"
         message += f"Content-Type: text/plain; charset=utf-8\r\n"
         message += f"\r\n{body}"
         
-        # Base64编码
+        # Base64 encoding
         raw_message = base64.urlsafe_b64encode(message.encode('utf-8')).decode('utf-8')
         
         return {'raw': raw_message}
@@ -70,17 +70,17 @@ def create_message(to, subject, body):
 
 def send_message(service, message):
     """
-    发送邮件消息
+    Send email message
     
     Args:
-        service: Gmail API服务对象
-        message: 邮件消息字典
+        service: Gmail API service object
+        message: Email message dictionary
         
     Returns:
-        发送结果
+        Send result
     """
     try:
-        # 发送邮件
+        # Send email
         result = service.users().messages().send(userId='me', body=message).execute()
         logger.info(f"Email sent successfully. Message ID: {result.get('id')}")
         return result
@@ -96,51 +96,51 @@ def send_message(service, message):
 
 async def send_email_via_google_api(email_data=None):
     """
-    主函数 - 使用Google Gmail API直接发送邮件
+    Main function - Send email directly using Google Gmail API
     
     Args:
-        email_data: 邮件数据字典，应包含:
-            - to: 收件人邮箱
-            - subject: 邮件主题  
-            - body: 邮件内容
-            - access_token: Google OAuth 2.0 访问令牌 (必需)
+        email_data: Email data dictionary, should contain:
+            - to: Recipient email address
+            - subject: Email subject  
+            - body: Email content
+            - access_token: Google OAuth 2.0 access token (required)
     """
     logger.info(f"[EmailService] Attempting to send email via Gmail API: {email_data}")
 
     try:
-        # 验证email_data格式
+        # Validate email_data format
         if not email_data:
             return False, "email_data is required"
         
         if not isinstance(email_data, dict):
             return False, "email_data must be a dictionary"
             
-        # 验证必需字段
+        # Validate required fields
         required_fields = ['to', 'subject', 'body', 'access_token']
         missing_fields = [field for field in required_fields if not email_data.get(field)]
         if missing_fields:
             return False, f"Missing required fields: {', '.join(missing_fields)}"
 
-        # 提取邮件数据
+        # Extract email data
         to = email_data['to']
         subject = email_data['subject']
         body = email_data['body']
         access_token = email_data['access_token']
 
-        # 在异步上下文中运行同步的Gmail API调用
+        # Run synchronous Gmail API calls in async context
         def _send_email_sync():
-            # 1. 创建Gmail服务
+            # 1. Create Gmail service
             service = create_gmail_service(access_token)
             
-            # 2. 创建邮件消息
+            # 2. Create email message
             message = create_message(to, subject, body)
             
-            # 3. 发送邮件
+            # 3. Send email
             result = send_message(service, message)
             
             return result
 
-        # 使用线程池执行同步代码
+        # Use thread pool to execute synchronous code
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, _send_email_sync)
         

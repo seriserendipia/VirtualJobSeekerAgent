@@ -54,10 +54,10 @@ async def handle_generate_and_modify_email():
         aurite = get_aurite()
         await aurite.initialize()
 
-        # 获取所有字段，前端总是发送所有字段
+        # Get all fields, frontend always sends all fields
         current_subject = payload.get('current_subject')
         current_body = payload.get('current_body')
-        user_prompt = payload.get('user_prompt')  # 改为user_prompt
+        user_prompt = payload.get('user_prompt')  # Changed to user_prompt
         job_description = payload.get('job_description')
         resume = payload.get('resume')
 
@@ -68,7 +68,7 @@ async def handle_generate_and_modify_email():
         logging.info(f"  job_description: length {len(job_description) if job_description else 0}")
         logging.info(f"  resume: length {len(resume) if resume else 0}")
 
-        # 检查是否为修改请求（三个字段都不为空）
+        # Check if it's a modification request (all three fields are not empty)
         if current_subject and current_body and user_prompt:
             # This is an email modification request
             logging.info("Attempting to modify existing email.")
@@ -76,13 +76,13 @@ async def handle_generate_and_modify_email():
             
             logging.info(f"[DEBUG] modify_email result: {revised_email}")
             
-            # 检查modify_email的返回格式
+            # Check modify_email return format
             if isinstance(revised_email, dict) and revised_email.get("status") == "success":
-                # 从嵌套的数据结构中提取邮件内容
+                # Extract email content from nested data structure
                 email_data = revised_email.get("data", {}).get("email", {})
                 logging.info(f"[DEBUG] Extracted email data: {email_data}")
                 
-                # 统一返回格式，包含message字段
+                # Unified return format, including message field
                 return jsonify({
                     "subject": email_data.get("subject", ""),
                     "body": email_data.get("body", ""),
@@ -104,17 +104,17 @@ async def handle_generate_and_modify_email():
             logging.info("Attempting to generate initial email.")
             generation_result = await generate_email(resume, job_description)
 
-            # 使用status字段判断
+            # Use status field for judgment
             if isinstance(generation_result, dict) and generation_result.get("status") == "success":
-                # 从嵌套的数据结构中提取邮件内容
+                # Extract email content from nested data structure
                 email_data = generation_result.get("data", {}).get("email", {})
                 logging.info("Email generated successfully.")
                 
-                # 统一返回格式，包含message字段
+                # Unified return format, including message field
                 return jsonify({
                     "subject": email_data.get("subject", ""),
                     "body": email_data.get("body", ""),
-                    "message": generation_result.get("message", "")  # 即使成功也返回message
+                    "message": generation_result.get("message", "")  # Return message even on success
                 }), 200
             elif isinstance(generation_result, dict) and generation_result.get("status") == "fail":
                 error_message = generation_result.get("message", "Unknown error occurred")
@@ -159,11 +159,11 @@ async def handle_find_recruiter_email():
         # --- NEW LOGIC: Prioritize extracting email from job_description ---
         found_email_in_jd = None
         if job_description:
-            # 简单的邮箱正则提取
+            # Simple email regex extraction
             email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
             email_matches = re.findall(email_pattern, job_description)
             if email_matches:
-                found_email_in_jd = email_matches[0]  # 取第一个找到的邮箱
+                found_email_in_jd = email_matches[0]  # Take the first found email
                 logging.info(f"Found email in job description: {found_email_in_jd}. Skipping web search.")
                 return jsonify({
                     "status": "Success",
@@ -193,18 +193,18 @@ async def handle_find_recruiter_email():
                 "result": found_email_from_web # Return the found email
             }), 200
         else:
-             # TODO: 前端需要特殊处理这个返回结果！
-            # 当 status="Fail" 时，result 可能是：
-            # 1. 字符串（错误信息）
-            # 2. 数组（URL对象列表，格式：[{"url": "...", "title": "..."}]）
-            # 前端必须检查 Array.isArray(data.result) 来区分类型
-            # 如果直接当字符串使用会显示 "[object Object],[object Object]"
-            # 建议前端代码：
+             # TODO: Frontend needs special handling for this return result!
+            # When status="Fail", result could be:
+            # 1. String (error message)
+            # 2. Array (URL object list, format: [{"url": "...", "title": "..."}])
+            # Frontend must check Array.isArray(data.result) to distinguish types
+            # If used directly as string, it will display "[object Object],[object Object]"
+            # Recommended frontend code:
             # if (Array.isArray(data.result)) {
-            #     // 处理URL数组，创建可点击链接
+            #     // Handle URL array, create clickable links
             #     data.result.forEach(item => console.log(item.title, item.url));
             # } else {
-            #     // 处理错误信息字符串
+            #     // Handle error message string
             #     console.error(data.result);
             # }
             return jsonify({
@@ -219,20 +219,20 @@ async def handle_find_recruiter_email():
     
 def validate_request():
     """
-    验证发邮件请求的基本格式和权限，验证扁平化的邮件数据结构
-    前端发送格式: {subject: "...", body: "...", to: "...", access_token: "..."}
+    Validate basic format and permissions for email sending request, validate flattened email data structure
+    Frontend sends format: {subject: "...", body: "...", to: "...", access_token: "..."}
     Returns: (is_valid, error_response, email_data_with_token)
     """
     logging.info("[validate_request] Starting email request validation")
     
-    # 验证扩展头
+    # Validate extension header
     if request.headers.get('X-From-Extension') != 'true':
         logging.warning("[validate_request] Request missing 'X-From-Extension: true' header.")
         return False, (jsonify({'error': 'Forbidden'}), 403), None
     
     logging.info("[validate_request] Extension header validation passed")
     
-    # 验证邮件格式是否是JSON数据
+    # Validate if email format is JSON data
     try:
         data = request.get_json(force=True)
         if not data:
@@ -246,15 +246,14 @@ def validate_request():
         logging.error(f"[validate_request] JSON parsing error: {e}")
         return False, (jsonify({'error': 'Invalid JSON in request body.'}), 400), None
     
-    # 验证是否有用户邮箱的access_token
+
     access_token = data.get('access_token')
     if not access_token:
         logging.error("[validate_request] Missing required access_token in request.")
         return False, (jsonify({'error': 'Missing required access_token'}), 400), None
     
     logging.info(f"[validate_request] Found access_token: {access_token[:20]}...")
-    
-    # 验证邮件内容 - 扁平化结构
+    logging.debug(f"[validate_request] Full access_token: {access_token}")
     subject = data.get('subject')
     body = data.get('body')
     to = data.get('to')
@@ -278,7 +277,6 @@ def validate_request():
         return False, (jsonify({'error': f"Missing required fields: {', '.join(missing_fields)}"}), 400), None
     
     
-    # 创建包含所有必要字段的邮件数据字典
     email_data_with_token = {
         'subject': subject,
         'body': body,
@@ -295,13 +293,12 @@ def validate_request():
 async def handle_send_email():
     logging.info(f'Received send-email request from {request.remote_addr}')
 
-    # 使用统一的验证函数，现在返回整合了access_token的邮件数据
     is_valid, error_response, email_data_with_token = validate_request()
     if not is_valid:
         return error_response
     
     logging.info(f'Parsed email data with token: {email_data_with_token}')
-    # 安全地显示access_token前缀用于调试
+
     if 'access_token' in email_data_with_token:
         logging.info(f'Processing email with access_token: {email_data_with_token["access_token"][:20]}...')
 
@@ -345,7 +342,4 @@ def handle_root():
 if __name__ == '__main__':
     HOST = '127.0.0.1'
     PORT = 5000
-    # 移除这里对 aurite_instance.initialize() 的全局调用
-    # asyncio.run(aurite_instance.initialize())
-    # asyncio.run(setup_aurite_for_recruiter_search()) # 如果存在的话，也移除
     app.run(host=HOST, port=PORT, debug=True)

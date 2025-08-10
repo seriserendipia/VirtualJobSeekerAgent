@@ -1,5 +1,5 @@
 // ============================
-// Google授权类
+// Google Authorization Class
 // ============================
 class GoogleAuth {
     async getAccessToken() {
@@ -12,7 +12,7 @@ class GoogleAuth {
             chrome.identity.getAuthToken({ interactive: true }, (token) => {
                 if (chrome.runtime.lastError) {
                     if (chrome.runtime.lastError.message.includes('context invalidated')) {
-                        reject(new Error("扩展上下文已失效，请重新加载扩展程序"));
+                        reject(new Error("Extension context invalidated, please reload the extension"));
                     } else {
                         reject(chrome.runtime.lastError);
                     }
@@ -25,7 +25,7 @@ class GoogleAuth {
 }
 
 // ============================
-// 全局变量
+// Global Variables
 // ============================
 window.googleAuth = new GoogleAuth();
 
@@ -39,7 +39,7 @@ window.generatedEmailData = {
 };
 
 // ============================
-// 简历上传处理
+// Resume Upload Handler
 // ============================
 document.getElementById("resume-upload").addEventListener("change", function (event) {
   const file = event.target.files[0];
@@ -73,7 +73,7 @@ document.getElementById("resume-upload").addEventListener("change", function (ev
 });
 
 // ============================
-// 页面加载处理
+// Page Load Handler
 // ============================
 window.addEventListener("DOMContentLoaded", () => {
   const savedResume = localStorage.getItem("resumeText");
@@ -98,7 +98,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ============================
-// 接收 Job Description & Job Info
+// Receive Job Description & Job Info
 // ============================
 window.addEventListener("message", (event) => {
   if (event.data.type === "JOB_DESCRIPTION") {
@@ -115,7 +115,7 @@ window.addEventListener("message", (event) => {
 });
 
 // ============================
-// 聊天功能
+// Chat Functionality
 // ============================
 function addMessageToChat(content, sender = "ai") {
   const chatBox = document.getElementById("chat-box");
@@ -132,12 +132,12 @@ function addMessage(content, sender) {
 }
 
 // ============================
-// 清空聊天记录功能
+// Clear Chat History Functionality
 // ============================
 document.getElementById("clear-chat-btn").addEventListener("click", () => {
   const chatBox = document.getElementById("chat-box");
-  chatHistory = []; // 清空聊天历史数组
-  chatBox.innerHTML = ""; // 清空聊天显示区域
+  chatHistory = []; // Clear chat history array
+  chatBox.innerHTML = ""; // Clear chat display area
   console.log("✅ Chat history cleared");
 });
 
@@ -201,7 +201,7 @@ document.getElementById("send-chat-btn").addEventListener("click", async () => {
 });
 
 // ============================
-// 生成邮件
+// Generate Email
 // ============================
 document.getElementById("generate-btn").addEventListener("click", async () => {
   const userInput = document.getElementById("user-input").value;
@@ -248,7 +248,7 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
 });
 
 // ============================
-// 发送邮件
+// Send Email
 // ============================
 document.getElementById("send-email-from-file-btn").addEventListener("click", async () => {
   const responseBox = document.querySelector(".placeholder");
@@ -259,14 +259,14 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
   }
 
   try {
-    responseBox.innerText = "🔐 正在获取Google授权...";
+    responseBox.innerText = "🔐 Getting Google authorization...";
 
     if (!chrome || !chrome.runtime || !chrome.runtime.id) {
-      throw new Error("扩展上下文已失效，请重新加载扩展程序");
+      throw new Error("Extension context invalidated, please reload the extension");
     }
 
     const accessToken = await window.googleAuth.getAccessToken();
-    responseBox.innerText = "📧 正在发送邮件...";
+    responseBox.innerText = "📧 Sending email...";
 
     const toEmail = document.getElementById("recipient-email").value || "recruiter@company.com";
 
@@ -296,8 +296,8 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
 
   } catch (error) {
     console.error("[ERROR] Email sending failed:", error);
-    if (error.message.includes('context invalidated') || error.message.includes('扩展上下文已失效')) {
-      responseBox.innerText = "❌ 扩展上下文已失效，请在Chrome扩展管理页面重新加载此扩展程序";
+    if (error.message.includes('context invalidated') || error.message.includes('Extension context invalidated')) {
+      responseBox.innerText = "❌ Extension context invalidated, please reload this extension in Chrome extension management page";
     } else {
       responseBox.innerText = `❌ Failed to send email: ${error.message}`;
     }
@@ -305,7 +305,7 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
 });
 
 // ============================
-// 获取收件人邮箱按钮功能
+// Get recipient email button functionality
 // ============================
 document.getElementById("get-recipient-btn").addEventListener("click", async () => {
   const companyName = document.getElementById("company-name").value;
@@ -338,17 +338,17 @@ document.getElementById("get-recipient-btn").addEventListener("click", async () 
     const result = await res.json();
 
     if (result.status === "Success") {
-      // 找到邮箱地址
+      // Email address found
       emailInput.value = result.result;
       status.innerText = "✅ Email found and filled.";
     } else if (result.status === "Fail") {
-      // 检查result是否为URL数组
+      // Check if result is URL array
       if (Array.isArray(result.result)) {
-        // 显示找到的相关URLs
+        // Display found relevant URLs
         status.innerHTML = "⚠️ No email found, but found relevant URLs:<br>" + 
           result.result.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
       } else {
-        // 显示错误信息
+        // Display error message
         status.innerText = `⚠️ ${result.result}`;
       }
       emailInput.placeholder = "Enter recipient email manually";
