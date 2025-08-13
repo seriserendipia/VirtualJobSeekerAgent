@@ -533,18 +533,30 @@ async def send_email_from_file_endpoint(
 
 # FastAPI 应用启动配置
 print("✅ [DEBUG] FastAPI 应用创建成功")
-if __name__ == '__main__' and not os.getenv('RAILWAY_ENVIRONMENT'):
-    # 只在本地直接运行时启动
-    print("🚀 [DEBUG] 本地环境，启动 uvicorn 服务器")
-    try:
-        import uvicorn
-        uvicorn.run(
-            app,
-            host=config['host'],
-            port=config['port'],
-            log_level="info" if config['debug'] else "warning"
-        )
-    except Exception as e:
-        print(f"❌ [FATAL] 服务器启动失败: {e}")
-        traceback.print_exc()
-        sys.exit(1)
+if __name__ == '__main__':
+    # 检查是否在 Railway 环境中
+    is_railway = any([
+        os.getenv('RAILWAY_ENVIRONMENT'),
+        os.getenv('RAILWAY_PROJECT_ID'),
+        os.getenv('RAILWAY_SERVICE_ID'),
+        os.getenv('PORT') and os.getenv('PORT') != '5000'
+    ])
+    
+    if not is_railway:
+        # 只在本地环境启动
+        print("🚀 [DEBUG] 本地环境，启动 uvicorn 服务器")
+        try:
+            import uvicorn
+            uvicorn.run(
+                app,
+                host=config['host'],
+                port=config['port'],
+                log_level="info" if config['debug'] else "warning"
+            )
+        except Exception as e:
+            print(f"❌ [FATAL] 服务器启动失败: {e}")
+            traceback.print_exc()
+            sys.exit(1)
+    else:
+        print(f"🚂 [INFO] Railway 环境检测到，跳过本地启动")
+        print(f"🚂 [INFO] 应用将通过 Procfile 启动在端口 {config['port']}")
