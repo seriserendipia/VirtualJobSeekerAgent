@@ -1,7 +1,7 @@
-# 核心 Web 框架
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
+# 核心 Web 框架 - 基于工作环境的确切版本
+fastapi==0.115.14
+uvicorn[standard]==0.35.0
+python-multipart==0.0.20
 
 # 环境变量管理
 python-dotenv==1.1.1
@@ -12,7 +12,7 @@ google-auth==2.40.3
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.2
 
-# AI 和 MCP
+# AI 和 MCP - 工作环境版本
 aurite==0.3.27
 mcp==1.11.0
 
@@ -20,8 +20,18 @@ mcp==1.11.0
 requests==2.32.4
 requests-oauthlib==2.0.0
 
-# OpenAI (如果使用)
+# OpenAI
 openai==1.97.1
 
-# 服务器 (FastAPI)
-# uvicorn 已在上面包含
+# 核心依赖 - 兼容版本
+pydantic==2.11.7
+pydantic-core==2.33.2
+anyio==4.9.0
+starlette==0.46.2
+typing-extensions==4.14.1
+
+# 支持依赖
+httpx==0.28.1
+h11==0.16.0
+click==8.1.8
+sniffio==1.3.1
