@@ -16,8 +16,25 @@ from typing import Optional, Dict, Any, Union
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-print("🔄 开始导入模块...")
+print("🔄 [DEBUG] server.py 开始执行")
+print(f"🔄 [DEBUG] Python 版本: {sys.version}")
+print(f"🔄 [DEBUG] 工作目录: {os.getcwd()}")
+print(f"🔄 [DEBUG] 环境变量检查:")
+
+# 检查关键环境变量
+env_check = {
+    'ENVIRONMENT': os.getenv('ENVIRONMENT', 'NOT_SET'),
+    'PORT': os.getenv('PORT', 'NOT_SET'),
+    'OPENAI_API_KEY': '已设置' if os.getenv('OPENAI_API_KEY') else 'NOT_SET',
+    'SMITHERY_API_KEY': '已设置' if os.getenv('SMITHERY_API_KEY') else 'NOT_SET',
+    'RAILWAY_ENVIRONMENT': os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')
+}
+
+for key, value in env_check.items():
+    print(f"   {key}: {value}")
+
 try:
+    print("🔄 [DEBUG] 开始导入模块...")
     from generate_followup_email import generate_email, modify_email
     from web_search_agent import find_recruiter_email_via_web_search, setup_aurite_for_recruiter_search
     print("✅ generate_followup_email 导入成功")
@@ -29,8 +46,13 @@ try:
     print("✅ aurite_service 导入成功")
     
 except Exception as e:
-    print(f"❌ 模块导入失败: {e}")
+    print(f"❌ [FATAL] 导入失败: {e}")
     traceback.print_exc()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    sys.exit(1)
+
+print("✅ [DEBUG] server.py 模块级代码执行完毕")
 
 # 环境配置函数
 def get_environment_config():
@@ -510,19 +532,19 @@ async def send_email_from_file_endpoint(
         raise HTTPException(status_code=500, detail={"success": False, "message": "Internal Server Error", "error": str(e)})
 
 # FastAPI 应用启动配置
-if __name__ == '__main__':
-    import uvicorn
-    print("🔧 开始启动服务器...")
-    print(f"Python 版本: {sys.version}")
-    print(f"FastAPI 应用: {app.title}")
-    print(f"当前工作目录: {os.getcwd()}")
-    print(f"环境: {config['environment']}")
-    print(f"端口: {config['port']}")
-    print(f"CORS Origins: {config['cors_origins']}")
-    
-    uvicorn.run(
-        app,
-        host=config['host'],
-        port=config['port'],
-        log_level="info" if config['debug'] else "warning"
-    )
+print("✅ [DEBUG] FastAPI 应用创建成功")
+if __name__ == '__main__' and not os.getenv('RAILWAY_ENVIRONMENT'):
+    # 只在本地直接运行时启动
+    print("🚀 [DEBUG] 本地环境，启动 uvicorn 服务器")
+    try:
+        import uvicorn
+        uvicorn.run(
+            app,
+            host=config['host'],
+            port=config['port'],
+            log_level="info" if config['debug'] else "warning"
+        )
+    except Exception as e:
+        print(f"❌ [FATAL] 服务器启动失败: {e}")
+        traceback.print_exc()
+        sys.exit(1)
