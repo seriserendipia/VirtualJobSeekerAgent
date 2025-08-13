@@ -1,3 +1,13 @@
+// 延迟获取服务器URL，确保config.js已加载
+function getServerURL() {
+    if (typeof getServerUrl === 'function') {
+        return getServerUrl();
+    } else {
+        console.warn('⚠️ getServerUrl function not available, using fallback');
+        return "https://virtualjobseekeragent-production.up.railway.app"; // production fallback URL
+    }
+}
+
 // ============================
 // Google Authorization Class
 // ============================
@@ -161,10 +171,10 @@ document.getElementById("send-chat-btn").addEventListener("click", async () => {
       resume: resumeContent,
       current_subject: window.generatedEmailData?.subject || "",
       current_body: window.generatedEmailData?.body || "",
-      user_prompt: text
+      user_feedback: text
     };
 
-    const res = await fetch("http://localhost:5000/generate_and_modify_email", {
+    const res = await fetch(`${getServerURL()}/generate_and_modify_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -176,9 +186,22 @@ document.getElementById("send-chat-btn").addEventListener("click", async () => {
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const result = await res.json();
 
-    const subject = result.subject || '';
-    const body = result.body || '';
-    const message = result.message || '';
+    // 处理新的响应格式
+    let subject = '';
+    let body = '';
+    let message = '';
+
+    if (result.status === "Success" && result.email) {
+      // 新的FastAPI格式
+      subject = result.email.subject || '';
+      body = result.email.body || '';
+    } else {
+      // 向后兼容旧格式
+      subject = result.subject || '';
+      body = result.body || '';
+    }
+    
+    message = result.message || '';
 
     if (message) console.log("Backend message:", message);
 
@@ -208,6 +231,23 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
   const responseBox = document.querySelector(".placeholder");
   const sendEmailBtn = document.getElementById("send-email-from-file-btn");
 
+  console.log("📧 [前端] 点击了生成邮件按钮");
+  console.log("📧 [前端] 当前状态检查:", {
+    hasJobDescription: !!currentJobDescription,
+    jobDescriptionLength: currentJobDescription?.length || 0,
+    hasResume: !!resumeContent,
+    resumeLength: resumeContent?.length || 0,
+    userInput: userInput,
+    serverUrl: getServerURL(),
+    currentGeneratedData: window.generatedEmailData
+  });
+
+  if (!currentJobDescription || !resumeContent) {
+    console.warn("📧 [前端] 缺少必要数据 - job description or resume");
+    responseBox.innerText = "❌ Please upload your resume and job description first.";
+    return;
+  }
+
   responseBox.innerText = "⏳ Generating email... Please wait.";
 
   try {
@@ -219,7 +259,16 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
       user_prompt: userInput || ""
     };
 
-    const res = await fetch("http://localhost:5000/generate_and_modify_email", {
+    console.log("📧 [前端] 开始发送请求到:", `${getServerURL()}/generate_email`);
+    console.log("📧 [前端] 请求payload:", {
+      job_description_length: payload.job_description?.length || 0,
+      resume_length: payload.resume?.length || 0,
+      current_subject: payload.current_subject,
+      current_body_length: payload.current_body?.length || 0,
+      user_prompt: payload.user_prompt
+    });
+
+    const res = await fetch(`${getServerURL()}/generate_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -228,21 +277,57 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
       body: JSON.stringify(payload)
     });
 
+    console.log("📧 [前端] 响应状态:", res.status);
+    console.log("📧 [前端] 响应headers:", Object.fromEntries(res.headers.entries()));
+
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const result = await res.json();
 
-    const subject = result.subject || '';
-    const body = result.body || '';
-    const message = result.message || '';
+    console.log("📧 [前端] 完整响应结果:", result);
+
+    // 处理新的响应格式
+    let subject = '';
+    let body = '';
+    let message = '';
+
+    if (result.status === "Success" && result.email) {
+      // 新的FastAPI格式
+      subject = result.email.subject || '';
+      body = result.email.body || '';
+      console.log("📧 [前端] 使用新格式，subject:", subject?.substring(0, 50));
+      console.log("📧 [前端] 使用新格式，body:", body?.substring(0, 100));
+    } else {
+      // 向后兼容旧格式
+      subject = result.subject || '';
+      body = result.body || '';
+      console.log("📧 [前端] 使用旧格式，subject:", subject?.substring(0, 50));
+      console.log("📧 [前端] 使用旧格式，body:", body?.substring(0, 100));
+    }
+    
+    message = result.message || '';
 
     if (message) console.log("Backend message:", message);
     window.generatedEmailData = { subject, body };
 
+    console.log("📧 [前端] 最终设置的数据:", {
+      subject: subject?.substring(0, 50),
+      body: body?.substring(0, 100),
+      fullSubject: subject,
+      fullBody: body
+    });
+
     responseBox.innerText = `📧 Generated Email\n\nSubject: ${subject}\n\n${body}`;
+    console.log("📧 [前端] 已更新UI显示内容");
     sendEmailBtn.style.display = 'inline-block';
 
   } catch (err) {
-    console.error("[ERROR] Failed to fetch email:", err);
+    console.error("📧 [前端] [ERROR] Failed to fetch email:", err);
+    console.error("📧 [前端] [ERROR] Error stack:", err.stack);
+    console.error("📧 [前端] [ERROR] Error details:", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack
+    });
     responseBox.innerText = "❌ Failed to generate email. Please try again.";
   }
 });
@@ -270,7 +355,8 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
 
     const toEmail = document.getElementById("recipient-email").value || "recruiter@company.com";
 
-    const res = await fetch("http://localhost:5000/send-email", {
+    // 调用后端API，传递token和结构化的邮件数据
+    const res = await fetch(`${getServerURL()}/send-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -321,7 +407,7 @@ document.getElementById("get-recipient-btn").addEventListener("click", async () 
   status.innerText = "🔍 Looking for recruiter email...";
 
   try {
-    const res = await fetch("http://localhost:5000/find_recruiter_email", {
+    const res = await fetch(`${getServerURL()}/find_recruiter_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -337,23 +423,28 @@ document.getElementById("get-recipient-btn").addEventListener("click", async () 
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const result = await res.json();
 
-    if (result.status === "Success") {
-      // Email address found
-      emailInput.value = result.result;
-      status.innerText = "✅ Email found and filled.";
-    } else if (result.status === "Fail") {
-      // Check if result is URL array
-      if (Array.isArray(result.result)) {
-        // Display found relevant URLs
+    console.log("🔍 [前端] 搜索邮箱响应:", result);
+
+    if (result.status === "Success" && result.result) {
+      const searchData = result.result;
+      
+      if (searchData.found_email) {
+        // Email address found
+        emailInput.value = searchData.found_email;
+        status.innerText = "✅ Email found and filled.";
+      } else if (searchData.relevant_urls && searchData.relevant_urls.length > 0) {
+        // No email found, but found relevant URLs
         status.innerHTML = "⚠️ No email found, but found relevant URLs:<br>" + 
-          result.result.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+          searchData.relevant_urls.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+        emailInput.placeholder = "Enter recipient email manually";
       } else {
-        // Display error message
-        status.innerText = `⚠️ ${result.result}`;
+        // No email or URLs found
+        status.innerText = "⚠️ No recruiter email found. You can manually enter it below.";
+        emailInput.placeholder = "Enter recipient email manually";
       }
-      emailInput.placeholder = "Enter recipient email manually";
     } else {
-      status.innerText = "⚠️ No email found. You can manually enter it below.";
+      // Search failed or unexpected response
+      status.innerText = "⚠️ Failed to search for recruiter email. You can manually enter it below.";
       emailInput.placeholder = "Enter recipient email manually";
     }
 
