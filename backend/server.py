@@ -181,14 +181,24 @@ async def require_extension_header(request: Request):
 # API 端点定义
 
 @app.get("/")
-async def root(request: Request, _: bool = Depends(require_extension_header)):
-    """根路径端点，验证服务状态"""
+async def root(request: Request):
+    """根路径端点，验证服务状态 - 移除扩展验证以支持Railway健康检查"""
     print("🏠 [ROOT] 收到根路径请求")
     print(f"🏠 Request headers: {dict(request.headers)}")
     print(f"🏠 Request origin: {request.headers.get('Origin', 'No Origin')}")
     
+    # 检查是否来自扩展
+    is_from_extension = request.headers.get('X-From-Extension') == 'true'
+    
     logger.info(f'Received GET request to root from {request.client.host if request.client else "Unknown"}')
-    return "Aloha from Python backend!"
+    
+    return {
+        "message": "Aloha from Python backend!",
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "environment": config['environment'],
+        "from_extension": is_from_extension
+    }
 
 @app.post("/generate_email")
 async def generate_email_endpoint(
