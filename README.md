@@ -17,7 +17,6 @@ Fill in your API keys in the `.env` file:
 ```bash
 OPENAI_API_KEY=sk-your_openai_api_key
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com # will get this in next step
-GMAIL_MCP_CREDS_PATH=PATH_TO_FILE # will get this in next step....\credentials.json, downloaded from GCP after creating client
 SMITHERY_API_KEY=your_smithery_api_key
 SMITHERY_PROFILE_ID=your_smithery_profile_id
 ```
