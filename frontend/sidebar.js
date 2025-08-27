@@ -24,6 +24,9 @@ class GoogleAuth {
     }
 }
 
+const API_BASE="https://virtualjobseekeragent-production.up.railway.app"
+//const API_BASE="http://localhost:5000"
+
 // ============================
 // Global Variables
 // ============================
@@ -164,7 +167,7 @@ document.getElementById("send-chat-btn").addEventListener("click", async () => {
       user_prompt: text
     };
 
-    const res = await fetch("http://localhost:5000/generate_and_modify_email", {
+    const res = await fetch(`${API_BASE}/generate_and_modify_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -219,7 +222,7 @@ document.getElementById("generate-btn").addEventListener("click", async () => {
       user_prompt: userInput || ""
     };
 
-    const res = await fetch("http://localhost:5000/generate_and_modify_email", {
+    const res = await fetch(`${API_BASE}/generate_and_modify_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -270,7 +273,7 @@ document.getElementById("send-email-from-file-btn").addEventListener("click", as
 
     const toEmail = document.getElementById("recipient-email").value || "recruiter@company.com";
 
-    const res = await fetch("http://localhost:5000/send-email", {
+    const res = await fetch(`${API_BASE}/send-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -321,7 +324,7 @@ document.getElementById("get-recipient-btn").addEventListener("click", async () 
   status.innerText = "🔍 Looking for recruiter email...";
 
   try {
-    const res = await fetch("http://localhost:5000/find_recruiter_email", {
+    const res = await fetch(`${API_BASE}/find_recruiter_email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
